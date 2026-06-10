@@ -1,0 +1,21 @@
+use_default_settings: true
+
+general:
+  debug: true
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "change_me"
+  limiter: false
+
+botdetection:
+  ip_limit:
+    filter_link_local: false
+    link_token: false
+
+  methods: []

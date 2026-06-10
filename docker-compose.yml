@@ -1,0 +1,200 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  TravelBuddy Agent Stack — Production với Nginx
+#  Truy cập: http://localhost:8890
+#
+#  Quick start:
+#    docker-compose up -d
+#    docker-compose up -d --scale worker=8   # scale worker
+#
+#  Services layout:
+#    nginx      → :8890 (host) — entry point duy nhất
+#                  /        → React UI (static)
+#                  /api/    → FastAPI backend
+#                  /ws/     → WebSocket
+#    api        → :8000 (internal only)
+#    worker     → no port (consumes Redis Stream)
+#    redis      → :6379 (internal only)
+#    searxng    → :8080 (internal only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Nginx – Entry Point (:8890) ───────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8890:80"          # ← HOST port 8890 → internal 80
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - frontend_dist:/usr/share/nginx/html:ro
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - travelbuddy
+
+  # ── Frontend Builder (one-shot, copies dist into volume) ──────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # Chạy 1 lần để build React, sau đó copy vào shared volume
+    command: >
+      sh -c "cp -r /usr/share/nginx/html/. /dist/ && echo 'Frontend build copied.'"
+    volumes:
+      - frontend_dist:/dist
+    # Không có restart — chạy 1 lần rồi thôi
+    networks:
+      - travelbuddy
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # KHÔNG expose port ra host trong production
+    # Nếu cần debug: comment ra dòng ports
+    # ports:
+    #   - "127.0.0.1:6379:6379"   # chỉ localhost nếu cần debug
+    command: >
+      redis-server
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+        --save ""
+        --appendonly no
+        --requirepass ${REDIS_PASSWORD:-changeme_redis_pass}
+        --bind 0.0.0.0
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme_redis_pass}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis_data:/data
+    networks:
+      - travelbuddy
+
+  # ── SearXNG ───────────────────────────────────────────────────────────────
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    # Không expose port ra ngoài — chỉ accessible nội bộ qua searxng:8080
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080
+      - SEARXNG_SECRET_KEY=${SEARXNG_SECRET_KEY:-changeme_searxng_secret}
+    volumes:
+      - ./docker/searxng:/etc/searxng:rw
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - travelbuddy
+
+  # ── FastAPI Server ────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Không expose port ra host — nginx là entry point duy nhất
+    # ports:
+    #   - "127.0.0.1:8000:8000"  # uncomment chỉ khi debug trực tiếp
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme_redis_pass}@redis:6379/0
+      - SEARXNG_URL=http://searxng:8080
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+    command: >
+      uvicorn src.api.server:app
+        --host 0.0.0.0
+        --port 8000
+        --workers 4
+        --log-level info
+        --access-log
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - travelbuddy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # ── Agent Workers ─────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme_redis_pass}@redis:6379/0
+      - SEARXNG_URL=http://searxng:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: python -m src.queue.streams
+    deploy:
+      replicas: 4
+      resources:
+        limits:
+          memory: 1G
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    networks:
+      - travelbuddy
+
+  # ── vLLM (tắt mặc định — bật khi LLM_PROVIDER=vllm và có GPU) ────────────
+  # vllm:
+  #   image: vllm/vllm-openai:latest
+  #   restart: unless-stopped
+  #   environment:
+  #     - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+  #   command: >
+  #     --model Qwen/Qwen3.5-4B
+  #     --served-model-name Qwen/Qwen3.5-4B
+  #     --gpu-memory-utilization 0.90
+  #     --max-model-len 8192
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   networks:
+  #     - travelbuddy
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  travelbuddy:
+    driver: bridge
+    # Isolated network — các service chỉ giao tiếp nội bộ
+    # Chỉ nginx expose ra host qua port 8890
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  redis_data:
+    driver: local
+  frontend_dist:
+    driver: local
