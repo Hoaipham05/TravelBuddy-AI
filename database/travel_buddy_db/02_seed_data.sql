@@ -1,203 +1,396 @@
 -- ============================================================
--- Travel Buddy — Seed Data (Data thực tế)
--- Chạy SAU 01_schema.sql
--- psql -U postgres -d travel_buddy -f 02_seed_data.sql
+-- TravelBuddy AI - Seed Data
+-- Chay SAU 01_schema.sql
+--
+-- Seed nay KHONG tao gia ve/gia phong mock.
+-- Gia ve/gia phong se duoc lay boi collectors/API va luu vao
+-- flight_price_snapshots / hotel_rate_snapshots voi TTL.
 -- ============================================================
 
--- ── DESTINATIONS (10 điểm đến thực tế Việt Nam + quốc tế) ──
+-- ============================================================
+-- 1. TOP 10 DOMESTIC DESTINATIONS
+-- ============================================================
 
-INSERT INTO destinations (name, slug, city, country, description, lat, lng, tags, best_months, avg_rating) VALUES
+INSERT INTO destinations
+    (name, slug, city, province, country_code, country_name, iata_city_code,
+     description, lat, lng, timezone, tags, best_months, avg_rating,
+     review_count, is_seeded, popularity_rank, source)
+VALUES
+('Đà Nẵng', 'da-nang', 'Đà Nẵng', 'Đà Nẵng', 'VN', 'Vietnam', 'DAD',
+ 'Thành phố biển miền Trung, nổi bật với biển Mỹ Khê, bán đảo Sơn Trà, Ngũ Hành Sơn và kết nối thuận tiện tới Hội An.',
+ 16.054407, 108.202167, 'Asia/Ho_Chi_Minh', '["biển","thành phố","ẩm thực","resort"]', '[3,4,5,6,7,8]', 4.6, 0, TRUE, 1, 'manual_seed'),
+('Hà Nội', 'ha-noi', 'Hà Nội', 'Hà Nội', 'VN', 'Vietnam', 'HAN',
+ 'Thủ đô Việt Nam với phố cổ, hồ Hoàn Kiếm, di sản văn hóa và ẩm thực đường phố đặc sắc.',
+ 21.027764, 105.834160, 'Asia/Ho_Chi_Minh', '["thành phố","lịch sử","ẩm thực","văn hóa"]', '[10,11,12,1,2,3,4]', 4.6, 0, TRUE, 2, 'manual_seed'),
+('TP.HCM', 'ho-chi-minh', 'TP.HCM', 'TP.HCM', 'VN', 'Vietnam', 'SGN',
+ 'Đô thị năng động phía Nam, phù hợp city break, ẩm thực, mua sắm và kết nối các tuyến du lịch miền Tây, Phú Quốc.',
+ 10.823099, 106.629664, 'Asia/Ho_Chi_Minh', '["thành phố","ẩm thực","mua sắm","đêm"]', '[12,1,2,3,4]', 4.5, 0, TRUE, 3, 'manual_seed'),
+('Hội An', 'hoi-an', 'Hội An', 'Quảng Nam', 'VN', 'Vietnam', 'DAD',
+ 'Phố cổ di sản UNESCO với đèn lồng, kiến trúc giao thoa và ẩm thực đặc trưng miền Trung.',
+ 15.880058, 108.338047, 'Asia/Ho_Chi_Minh', '["phố cổ","di sản","ẩm thực","văn hóa"]', '[2,3,4,5,8,9]', 4.8, 0, TRUE, 4, 'manual_seed'),
+('Phú Quốc', 'phu-quoc', 'Phú Quốc', 'Kiên Giang', 'VN', 'Vietnam', 'PQC',
+ 'Đảo du lịch nổi tiếng với biển, resort, lặn ngắm san hô, hoàng hôn và hải sản.',
+ 10.289879, 103.984020, 'Asia/Ho_Chi_Minh', '["đảo","biển","resort","lặn biển"]', '[11,12,1,2,3,4]', 4.7, 0, TRUE, 5, 'manual_seed'),
+('Nha Trang', 'nha-trang', 'Nha Trang', 'Khánh Hòa', 'VN', 'Vietnam', 'CXR',
+ 'Thành phố biển Nam Trung Bộ với vịnh biển, đảo Hòn Mun, suối khoáng và nhiều resort ven biển.',
+ 12.238791, 109.196749, 'Asia/Ho_Chi_Minh', '["biển","đảo","hải sản","resort"]', '[1,2,3,4,7,8]', 4.4, 0, TRUE, 6, 'manual_seed'),
+('Đà Lạt', 'da-lat', 'Đà Lạt', 'Lâm Đồng', 'VN', 'Vietnam', 'DLI',
+ 'Thành phố cao nguyên khí hậu mát mẻ, nổi bật với hồ, thác, rừng thông, cà phê và nông trại.',
+ 11.940419, 108.458313, 'Asia/Ho_Chi_Minh', '["núi","cà phê","nghỉ dưỡng","thiên nhiên"]', '[11,12,1,2,3]', 4.5, 0, TRUE, 7, 'manual_seed'),
+('Huế', 'hue', 'Huế', 'Thừa Thiên Huế', 'VN', 'Vietnam', 'HUI',
+ 'Cố đô Việt Nam với Đại Nội, lăng tẩm triều Nguyễn, sông Hương và ẩm thực cung đình.',
+ 16.463713, 107.590866, 'Asia/Ho_Chi_Minh', '["lịch sử","di sản","ẩm thực","văn hóa"]', '[1,2,3,4,8,9]', 4.5, 0, TRUE, 8, 'manual_seed'),
+('Hạ Long', 'ha-long', 'Hạ Long', 'Quảng Ninh', 'VN', 'Vietnam', 'VDO',
+ 'Điểm đến vịnh biển, du thuyền và hang động đá vôi nổi tiếng tại Quảng Ninh.',
+ 20.971198, 107.044807, 'Asia/Ho_Chi_Minh', '["vịnh","du thuyền","thiên nhiên","di sản"]', '[3,4,5,10,11]', 4.7, 0, TRUE, 9, 'manual_seed'),
+('Sapa', 'sapa', 'Sapa', 'Lào Cai', 'VN', 'Vietnam', NULL,
+ 'Thị trấn vùng cao với ruộng bậc thang, bản làng dân tộc, trekking và đỉnh Fansipan.',
+ 22.336360, 103.843785, 'Asia/Ho_Chi_Minh', '["núi","trekking","văn hóa","ruộng bậc thang"]', '[3,4,5,9,10]', 4.6, 0, TRUE, 10, 'manual_seed');
 
-('Đà Nẵng',    'da-nang',   'Đà Nẵng', 'Vietnam',
- 'Thành phố biển sầm uất miền Trung, nổi tiếng với bãi biển Mỹ Khê, Bà Nà Hills và cầu Rồng phun lửa.',
- 16.0544, 108.2022, '["biển","thành phố","ẩm thực","resort"]', '[5,6,7,8,9]', 4.6),
+-- ============================================================
+-- 2. AIRPORTS, AIRLINES, TOP 20 ROUTES
+-- ============================================================
 
-('Hội An',     'hoi-an',    'Hội An',  'Vietnam',
- 'Phố cổ di sản UNESCO với đèn lồng rực rỡ, ẩm thực độc đáo và kiến trúc giao thoa văn hóa.',
- 15.8801, 108.3380, '["phố cổ","di sản","ẩm thực","lịch sử"]', '[1,2,3,10,11,12]', 4.8),
+INSERT INTO airports (iata_code, name, city, country_code, lat, lng, timezone, is_domestic_vn) VALUES
+('HAN', 'Noi Bai International Airport', 'Hà Nội', 'VN', 21.218714, 105.804170, 'Asia/Ho_Chi_Minh', TRUE),
+('SGN', 'Tan Son Nhat International Airport', 'TP.HCM', 'VN', 10.818797, 106.651856, 'Asia/Ho_Chi_Minh', TRUE),
+('DAD', 'Da Nang International Airport', 'Đà Nẵng', 'VN', 16.043917, 108.199370, 'Asia/Ho_Chi_Minh', TRUE),
+('PQC', 'Phu Quoc International Airport', 'Phú Quốc', 'VN', 10.169800, 103.993100, 'Asia/Ho_Chi_Minh', TRUE),
+('CXR', 'Cam Ranh International Airport', 'Nha Trang', 'VN', 11.998200, 109.219400, 'Asia/Ho_Chi_Minh', TRUE),
+('DLI', 'Lien Khuong Airport', 'Đà Lạt', 'VN', 11.750000, 108.367000, 'Asia/Ho_Chi_Minh', TRUE),
+('HUI', 'Phu Bai International Airport', 'Huế', 'VN', 16.401500, 107.703000, 'Asia/Ho_Chi_Minh', TRUE),
+('VDO', 'Van Don International Airport', 'Hạ Long', 'VN', 21.117800, 107.414200, 'Asia/Ho_Chi_Minh', TRUE),
+('HPH', 'Cat Bi International Airport', 'Hải Phòng', 'VN', 20.819400, 106.724900, 'Asia/Ho_Chi_Minh', TRUE);
 
-('Hạ Long',    'ha-long',   'Quảng Ninh','Vietnam',
- 'Vịnh Hạ Long – Di sản thiên nhiên thế giới với hơn 1.600 hòn đảo đá vôi hùng vĩ.',
- 20.9101, 107.1839, '["biển","thuyền","thiên nhiên","di sản"]', '[3,4,5,10,11]', 4.7),
+INSERT INTO airlines (iata_code, name, country_code, booking_base_url, is_seed_target) VALUES
+('VN', 'Vietnam Airlines', 'VN', 'https://www.vietnamairlines.com/vn/vi/home', TRUE),
+('VJ', 'VietJet Air', 'VN', 'https://www.vietjetair.com/vi', TRUE),
+('QH', 'Bamboo Airways', 'VN', 'https://www.bambooairways.com/vn/vi', TRUE);
 
-('Đà Lạt',     'da-lat',    'Lâm Đồng','Vietnam',
- 'Thành phố mộng mơ với khí hậu mát mẻ quanh năm, đồi thông, vườn hoa và thác nước.',
- 11.9404, 108.4583, '["núi","hoa","cà phê","nghỉ dưỡng","lãng mạn"]', '[1,2,3,11,12]', 4.5),
+INSERT INTO flight_routes
+    (origin_iata, destination_iata, route_key, destination_id, is_domestic, is_popular_seed, popularity_rank)
+VALUES
+('HAN','SGN','HAN-SGN',(SELECT id FROM destinations WHERE slug='ho-chi-minh'),TRUE,TRUE,1),
+('SGN','HAN','SGN-HAN',(SELECT id FROM destinations WHERE slug='ha-noi'),TRUE,TRUE,2),
+('HAN','DAD','HAN-DAD',(SELECT id FROM destinations WHERE slug='da-nang'),TRUE,TRUE,3),
+('DAD','HAN','DAD-HAN',(SELECT id FROM destinations WHERE slug='ha-noi'),TRUE,TRUE,4),
+('SGN','DAD','SGN-DAD',(SELECT id FROM destinations WHERE slug='da-nang'),TRUE,TRUE,5),
+('DAD','SGN','DAD-SGN',(SELECT id FROM destinations WHERE slug='ho-chi-minh'),TRUE,TRUE,6),
+('HAN','PQC','HAN-PQC',(SELECT id FROM destinations WHERE slug='phu-quoc'),TRUE,TRUE,7),
+('PQC','HAN','PQC-HAN',(SELECT id FROM destinations WHERE slug='ha-noi'),TRUE,TRUE,8),
+('SGN','PQC','SGN-PQC',(SELECT id FROM destinations WHERE slug='phu-quoc'),TRUE,TRUE,9),
+('PQC','SGN','PQC-SGN',(SELECT id FROM destinations WHERE slug='ho-chi-minh'),TRUE,TRUE,10),
+('HAN','CXR','HAN-CXR',(SELECT id FROM destinations WHERE slug='nha-trang'),TRUE,TRUE,11),
+('CXR','HAN','CXR-HAN',(SELECT id FROM destinations WHERE slug='ha-noi'),TRUE,TRUE,12),
+('SGN','CXR','SGN-CXR',(SELECT id FROM destinations WHERE slug='nha-trang'),TRUE,TRUE,13),
+('CXR','SGN','CXR-SGN',(SELECT id FROM destinations WHERE slug='ho-chi-minh'),TRUE,TRUE,14),
+('HAN','DLI','HAN-DLI',(SELECT id FROM destinations WHERE slug='da-lat'),TRUE,TRUE,15),
+('DLI','HAN','DLI-HAN',(SELECT id FROM destinations WHERE slug='ha-noi'),TRUE,TRUE,16),
+('SGN','DLI','SGN-DLI',(SELECT id FROM destinations WHERE slug='da-lat'),TRUE,TRUE,17),
+('DLI','SGN','DLI-SGN',(SELECT id FROM destinations WHERE slug='ho-chi-minh'),TRUE,TRUE,18),
+('HAN','HUI','HAN-HUI',(SELECT id FROM destinations WHERE slug='hue'),TRUE,TRUE,19),
+('SGN','HUI','SGN-HUI',(SELECT id FROM destinations WHERE slug='hue'),TRUE,TRUE,20);
 
-('Phú Quốc',   'phu-quoc',  'Kiên Giang','Vietnam',
- 'Đảo Ngọc với bãi biển nước trong vắt, san hô đẹp và resort đẳng cấp quốc tế.',
- 10.2897, 103.9840, '["đảo","biển","lặn biển","resort","hoàng hôn"]', '[11,12,1,2,3,4]', 4.7),
+-- ============================================================
+-- 3. HOTEL METADATA SEED - NO PRICES
+-- ============================================================
 
-('Sapa',       'sapa',      'Lào Cai',  'Vietnam',
- 'Thị trấn vùng cao với ruộng bậc thang kỳ vĩ, bản làng người H''Mông và đỉnh Fansipan.',
- 22.3364, 103.8438, '["núi","trekking","văn hóa dân tộc","ruộng bậc thang"]', '[3,4,5,9,10]', 4.6),
+WITH hotel_seed(destination_slug, name, slug, stars, property_type, area, address, lat, lng, amenities, provider, deep_link_url, source) AS (
+    VALUES
+    ('da-nang','Furama Resort Danang','furama-resort-danang',5,'resort','Bắc Mỹ An','68 Hồ Xuân Hương, Đà Nẵng',16.033300,108.246400,'["beach","pool","spa","restaurant","gym","wifi"]','manual','https://www.agoda.com/search?city=16440','manual_seed'),
+    ('da-nang','Haian Beach Hotel & Spa','haian-beach-hotel-spa',4,'hotel','Mỹ Khê','278 Võ Nguyên Giáp, Đà Nẵng',16.061300,108.249400,'["beach","pool","breakfast","wifi","restaurant"]','manual','https://www.agoda.com/search?city=16440','manual_seed'),
+    ('da-nang','Brilliant Hotel Danang','brilliant-hotel-danang',4,'hotel','Hải Châu','162 Bạch Đằng, Đà Nẵng',16.066100,108.224000,'["river_view","breakfast","wifi","restaurant"]','manual','https://www.agoda.com/search?city=16440','manual_seed'),
 
-('Nha Trang',  'nha-trang', 'Khánh Hòa','Vietnam',
- 'Thành phố biển xanh với đảo Hòn Mun lặn ngắm san hô, Vinpearl Land và hải sản tươi ngon.',
- 12.2388, 109.1967, '["biển","đảo","hải sản","resort","lặn biển"]', '[1,2,3,7,8]', 4.4),
+    ('ha-noi','Sofitel Legend Metropole Hanoi','sofitel-legend-metropole-hanoi',5,'hotel','Hoàn Kiếm','15 Ngô Quyền, Hà Nội',21.025500,105.856300,'["heritage","pool","spa","restaurant","gym","wifi"]','manual','https://www.agoda.com/search?city=2758','manual_seed'),
+    ('ha-noi','Hanoi La Siesta Hotel & Spa','hanoi-la-siesta-hotel-spa',4,'hotel','Hoàn Kiếm','94 Mã Mây, Hà Nội',21.035200,105.852000,'["spa","breakfast","wifi","restaurant"]','manual','https://www.agoda.com/search?city=2758','manual_seed'),
+    ('ha-noi','The Light Hotel Hanoi','the-light-hotel-hanoi',4,'hotel','Hoàn Kiếm','128-130 Hàng Bông, Hà Nội',21.029300,105.847700,'["pool","breakfast","wifi","gym"]','manual','https://www.agoda.com/search?city=2758','manual_seed'),
 
-('Bangkok',    'bangkok',   'Bangkok',  'Thailand',
- 'Thủ đô năng động với chùa Phật Ngọc, đường phố ẩm thực sôi động và trung tâm mua sắm hiện đại.',
- 13.7563, 100.5018, '["thành phố","chùa","ẩm thực","mua sắm","đêm"]', '[11,12,1,2]', 4.5),
+    ('ho-chi-minh','Rex Hotel Saigon','rex-hotel-saigon',5,'hotel','Quận 1','141 Nguyễn Huệ, TP.HCM',10.775600,106.701900,'["pool","spa","restaurant","gym","wifi"]','manual','https://www.agoda.com/search?city=13170','manual_seed'),
+    ('ho-chi-minh','Liberty Central Saigon Citypoint','liberty-central-saigon-citypoint',4,'hotel','Quận 1','59 Pasteur, TP.HCM',10.775900,106.700500,'["pool","breakfast","wifi","gym"]','manual','https://www.agoda.com/search?city=13170','manual_seed'),
+    ('ho-chi-minh','Silverland Jolie Hotel','silverland-jolie-hotel',4,'hotel','Quận 1','4D Thi Sách, TP.HCM',10.777800,106.705000,'["pool","breakfast","wifi","spa"]','manual','https://www.agoda.com/search?city=13170','manual_seed'),
 
-('Tokyo',      'tokyo',     'Tokyo',    'Japan',
- 'Siêu đô thị kết hợp hoàn hảo giữa truyền thống và hiện đại – đền Senso-ji, Shibuya, ẩm thực Michelin.',
- 35.6762, 139.6503, '["thành phố","công nghệ","ẩm thực","anime","mùa hoa anh đào"]', '[3,4,10,11]', 4.9),
+    ('hoi-an','Anantara Hoi An Resort','anantara-hoi-an-resort',5,'resort','Ven sông','1 Phạm Hồng Thái, Hội An',15.881700,108.334200,'["river_view","pool","spa","restaurant","bicycle"]','manual','https://www.agoda.com/search?city=16552','manual_seed'),
+    ('hoi-an','Hoi An Silk Village Resort','hoi-an-silk-village-resort',4,'resort','Tân An','28 Nguyễn Tất Thành, Hội An',15.890600,108.323100,'["pool","spa","breakfast","wifi"]','manual','https://www.agoda.com/search?city=16552','manual_seed'),
+    ('hoi-an','Little Riverside Hoi An','little-riverside-hoi-an',5,'hotel','Cẩm Châu','09 Phan Bội Châu, Hội An',15.878900,108.337500,'["river_view","pool","breakfast","wifi"]','manual','https://www.agoda.com/search?city=16552','manual_seed'),
 
-('Singapore',  'singapore', 'Singapore','Singapore',
- 'Quốc đảo sạch đẹp với Gardens by the Bay, Marina Bay Sands và thiên đường ẩm thực đường phố.',
- 1.3521, 103.8198, '["thành phố","ẩm thực","hiện đại","mua sắm","gia đình"]', '[2,3,7,8]', 4.7);
+    ('phu-quoc','La Veranda Resort Phu Quoc','la-veranda-resort-phu-quoc',5,'resort','Dương Đông','Trần Hưng Đạo, Phú Quốc',10.199400,103.964700,'["beach","pool","spa","restaurant","wifi"]','manual','https://www.agoda.com/search?city=17188','manual_seed'),
+    ('phu-quoc','Lahana Resort Phu Quoc','lahana-resort-phu-quoc',4,'resort','Dương Đông','91/3 Trần Hưng Đạo, Phú Quốc',10.212700,103.960600,'["pool","breakfast","wifi","garden"]','manual','https://www.agoda.com/search?city=17188','manual_seed'),
+    ('phu-quoc','Premier Village Phu Quoc Resort','premier-village-phu-quoc-resort',5,'resort','Mũi Ông Đội','Mũi Ông Đội, Phú Quốc',10.009900,104.023400,'["beach","pool","villa","spa","restaurant"]','manual','https://www.agoda.com/search?city=17188','manual_seed'),
 
+    ('nha-trang','InterContinental Nha Trang','intercontinental-nha-trang',5,'hotel','Trần Phú','32-34 Trần Phú, Nha Trang',12.246100,109.196400,'["beach","pool","spa","restaurant","gym"]','manual','https://www.agoda.com/search?city=2679','manual_seed'),
+    ('nha-trang','Mia Resort Nha Trang','mia-resort-nha-trang',5,'resort','Bãi Dông','Bãi Dông, Cam Lâm, Khánh Hòa',12.065000,109.196000,'["beach","villa","pool","spa","restaurant"]','manual','https://www.agoda.com/search?city=2679','manual_seed'),
+    ('nha-trang','Liberty Central Nha Trang','liberty-central-nha-trang',4,'hotel','Trần Phú','9 Biệt Thự, Nha Trang',12.238400,109.195600,'["pool","breakfast","wifi","gym"]','manual','https://www.agoda.com/search?city=2679','manual_seed'),
 
--- ── HOTELS (3 khách sạn / điểm đến, dữ liệu thực) ───────────
+    ('da-lat','Dalat Palace Heritage Hotel','dalat-palace-heritage-hotel',5,'hotel','Hồ Xuân Hương','2 Trần Phú, Đà Lạt',11.938800,108.438000,'["heritage","lake_view","restaurant","spa","garden"]','manual','https://www.agoda.com/search?city=15932','manual_seed'),
+    ('da-lat','Ana Mandara Villas Dalat','ana-mandara-villas-dalat',5,'resort','Lê Lai','Lê Lai, Đà Lạt',11.950800,108.430600,'["villa","garden","spa","restaurant","pool"]','manual','https://www.agoda.com/search?city=15932','manual_seed'),
+    ('da-lat','TTC Hotel Premium Ngoc Lan','ttc-hotel-premium-ngoc-lan',4,'hotel','Trung tâm','42 Nguyễn Chí Thanh, Đà Lạt',11.940000,108.441900,'["lake_view","breakfast","wifi","restaurant"]','manual','https://www.agoda.com/search?city=15932','manual_seed'),
 
--- Đà Nẵng
-WITH d AS (SELECT id FROM destinations WHERE slug='da-nang')
-INSERT INTO hotels (destination_id, name, stars, price_per_night, address, lat, lng, amenities, avg_rating) VALUES
-((SELECT id FROM d), 'Furama Resort Danang',         5, 3500000, '68 Hồ Xuân Hương, Bắc Mỹ An, Đà Nẵng',
- 16.0333, 108.2464, '["pool","spa","beach","restaurant","gym","wifi","kids_club"]', 4.7),
-((SELECT id FROM d), 'Haian Beach Hotel & Spa',      4, 900000,  '28 Võ Nguyên Giáp, Sơn Trà, Đà Nẵng',
- 16.0613, 108.2494, '["pool","beach","breakfast","wifi","restaurant"]', 4.3),
-((SELECT id FROM d), 'Brilliant Hotel Danang',       3, 500000,  '162 Bach Dang, Hai Chau, Đà Nẵng',
- 16.0624, 108.2234, '["wifi","breakfast","city_view","restaurant"]', 4.1);
+    ('hue','Azerai La Residence Hue','azerai-la-residence-hue',5,'hotel','Sông Hương','5 Lê Lợi, Huế',16.458800,107.578600,'["heritage","river_view","pool","spa","restaurant"]','manual','https://www.agoda.com/search?city=2846','manual_seed'),
+    ('hue','Pilgrimage Village Boutique Resort','pilgrimage-village-boutique-resort',5,'resort','Thủy Xuân','130 Minh Mạng, Huế',16.425700,107.568800,'["pool","spa","garden","restaurant"]','manual','https://www.agoda.com/search?city=2846','manual_seed'),
+    ('hue','Eldora Hotel Hue','eldora-hotel-hue',4,'hotel','Trung tâm','60 Bến Nghé, Huế',16.461000,107.594300,'["pool","breakfast","wifi","restaurant"]','manual','https://www.agoda.com/search?city=2846','manual_seed'),
 
--- Hội An
-WITH d AS (SELECT id FROM destinations WHERE slug='hoi-an')
-INSERT INTO hotels (destination_id, name, stars, price_per_night, address, lat, lng, amenities, avg_rating) VALUES
-((SELECT id FROM d), 'Anantara Hoi An Resort',       5, 4200000, '1 Pham Hong Thai, Hoi An',
- 15.8817, 108.3342, '["pool","spa","river_view","restaurant","wifi","bicycle"]', 4.9),
-((SELECT id FROM d), 'Hoi An Silk Village Resort',   4, 1200000, 'Thanh Ha Village, Hoi An',
- 15.8833, 108.3069, '["pool","spa","traditional","breakfast","wifi"]', 4.5),
-((SELECT id FROM d), 'Hoi An Backpackers Hostel',    2, 180000,  '19 Phan Dinh Phung, Hoi An',
- 15.8792, 108.3349, '["wifi","bar","breakfast","social_area"]', 4.0);
+    ('ha-long','Vinpearl Resort & Spa Ha Long','vinpearl-resort-spa-ha-long',5,'resort','Đảo Rều','Đảo Rều, Hạ Long',20.948900,107.049000,'["bay_view","pool","spa","beach","restaurant"]','manual','https://www.agoda.com/search?city=17182','manual_seed'),
+    ('ha-long','Wyndham Legend Halong','wyndham-legend-halong',5,'hotel','Bãi Cháy','12 Hạ Long, Bãi Cháy',20.953000,107.055900,'["bay_view","pool","breakfast","gym"]','manual','https://www.agoda.com/search?city=17182','manual_seed'),
+    ('ha-long','Paradise Suites Hotel','paradise-suites-hotel',4,'hotel','Tuần Châu','Tuần Châu, Hạ Long',20.923000,106.991200,'["pool","breakfast","wifi","marina"]','manual','https://www.agoda.com/search?city=17182','manual_seed'),
 
--- Đà Lạt
-WITH d AS (SELECT id FROM destinations WHERE slug='da-lat')
-INSERT INTO hotels (destination_id, name, stars, price_per_night, address, lat, lng, amenities, avg_rating) VALUES
-((SELECT id FROM d), 'Dalat Palace Heritage Hotel',  5, 3800000, '2 Tran Phu, Da Lat',
- 11.9388, 108.4380, '["heritage","lake_view","restaurant","spa","wifi","garden"]', 4.8),
-((SELECT id FROM d), 'TTC Hotel Premium Ngoc Lan',   4, 1100000, '42 Nguyen Chi Thanh, Da Lat',
- 11.9400, 108.4419, '["mountain_view","breakfast","wifi","restaurant","fireplace"]', 4.2),
-((SELECT id FROM d), 'Terracotta Hotel & Resort',    4, 1800000, '2/2 Phu Dong Thien Vuong, Da Lat',
- 11.9444, 108.4333, '["pool","resort","garden","wifi","breakfast","coffee"]', 4.4);
+    ('sapa','Hotel de la Coupole Sapa','hotel-de-la-coupole-sapa',5,'hotel','Trung tâm','1 Hoàng Liên, Sapa',22.335500,103.840900,'["mountain_view","pool","spa","restaurant"]','manual','https://www.agoda.com/search?city=17198','manual_seed'),
+    ('sapa','Topas Ecolodge','topas-ecolodge',5,'lodge','Thanh Kim','Thanh Kim, Sapa',22.262900,103.934600,'["mountain_view","pool","eco","restaurant"]','manual','https://www.agoda.com/search?city=17198','manual_seed'),
+    ('sapa','Pao''s Sapa Leisure Hotel','paos-sapa-leisure-hotel',5,'hotel','Mường Hoa','Mường Hoa, Sapa',22.328500,103.839900,'["mountain_view","pool","breakfast","wifi"]','manual','https://www.agoda.com/search?city=17198','manual_seed')
+)
+INSERT INTO hotels
+    (destination_id, name, slug, stars, property_type, area, address, lat, lng,
+     amenities, provider, deep_link_url, is_seeded, source)
+SELECT d.id, h.name, h.slug, h.stars, h.property_type, h.area, h.address, h.lat, h.lng,
+       h.amenities::jsonb, h.provider, h.deep_link_url, TRUE, h.source
+FROM hotel_seed h
+JOIN destinations d ON d.slug = h.destination_slug;
 
--- Bangkok
-WITH d AS (SELECT id FROM destinations WHERE slug='bangkok')
-INSERT INTO hotels (destination_id, name, stars, price_per_night, address, lat, lng, amenities, avg_rating) VALUES
-((SELECT id FROM d), 'Mandarin Oriental Bangkok',    5, 12000000,'48 Oriental Ave, Bangkok',
- 13.7243, 100.5126, '["riverside","spa","pool","heritage","restaurant","butler"]', 4.9),
-((SELECT id FROM d), 'Chatrium Hotel Riverside',     4, 2800000, '28 Charoenkrung 70, Bangkok',
- 13.7101, 100.5185, '["riverside","pool","gym","restaurant","wifi"]', 4.4),
-((SELECT id FROM d), 'Lub d Bangkok Silom',          2, 450000,  '4 Decho Road, Silom, Bangkok',
- 13.7249, 100.5220, '["wifi","social","rooftop_bar","hostel","central"]', 4.1);
+-- ============================================================
+-- 4. SEED POI - TOP POI SAMPLE FOR EACH DESTINATION
+-- ============================================================
 
+WITH poi_seed(destination_slug, name, slug, category, kinds, description, lat, lng, estimated_duration_min, source_ref) AS (
+    VALUES
+    ('da-nang','Bãi biển Mỹ Khê','bai-bien-my-khe','beach','["beaches","natural"]','Bãi biển nổi tiếng của Đà Nẵng, phù hợp tắm biển, dạo sáng sớm và ngắm bình minh.',16.061700,108.246800,120,'seed-da-nang-my-khe'),
+    ('da-nang','Ngũ Hành Sơn','ngu-hanh-son','nature','["natural","historic","religion"]','Cụm núi đá vôi, hang động và chùa cổ phía Nam Đà Nẵng.',16.003900,108.264400,180,'seed-da-nang-marble'),
+    ('da-nang','Bán đảo Sơn Trà','ban-dao-son-tra','nature','["natural","view_points"]','Khu bán đảo có rừng, chùa Linh Ứng, đường ven biển và điểm ngắm cảnh.',16.118600,108.273900,240,'seed-da-nang-son-tra'),
 
--- ── FLIGHTS (data tham khảo thực tế tháng 6/2026) ───────────
+    ('ha-noi','Hồ Hoàn Kiếm','ho-hoan-kiem','landmark','["cultural","historic"]','Không gian trung tâm Hà Nội, phù hợp đi bộ, tham quan đền Ngọc Sơn và phố cổ.',21.028700,105.852100,90,'seed-ha-noi-hoan-kiem'),
+    ('ha-noi','Văn Miếu - Quốc Tử Giám','van-mieu-quoc-tu-giam','historic','["historic","cultural"]','Quần thể di tích Nho học tiêu biểu, gắn với lịch sử giáo dục Việt Nam.',21.028100,105.835600,120,'seed-ha-noi-van-mieu'),
+    ('ha-noi','Phố cổ Hà Nội','pho-co-ha-noi','culture','["cultural","foods"]','Khu phố cổ với ẩm thực, kiến trúc và đời sống đô thị đặc trưng.',21.035000,105.850000,180,'seed-ha-noi-old-quarter'),
 
-WITH da_nang  AS (SELECT id FROM destinations WHERE slug='da-nang'),
-     hoi_an   AS (SELECT id FROM destinations WHERE slug='hoi-an'),
-     ha_long  AS (SELECT id FROM destinations WHERE slug='ha-long'),
-     phu_quoc AS (SELECT id FROM destinations WHERE slug='phu-quoc'),
-     bangkok  AS (SELECT id FROM destinations WHERE slug='bangkok'),
-     tokyo    AS (SELECT id FROM destinations WHERE slug='tokyo')
+    ('ho-chi-minh','Dinh Độc Lập','dinh-doc-lap','historic','["historic","cultural"]','Công trình lịch sử trung tâm TP.HCM, thường kết hợp tham quan Nhà thờ Đức Bà và Bưu điện.',10.777000,106.695300,90,'seed-hcm-independence'),
+    ('ho-chi-minh','Chợ Bến Thành','cho-ben-thanh','market','["foods","cultural"]','Chợ biểu tượng của thành phố, phù hợp mua sắm và khám phá ẩm thực.',10.772500,106.698000,90,'seed-hcm-ben-thanh'),
+    ('ho-chi-minh','Phố đi bộ Nguyễn Huệ','pho-di-bo-nguyen-hue','city_walk','["urban","cultural"]','Không gian đi bộ trung tâm, nhiều quán cà phê, nhà hàng và hoạt động buổi tối.',10.775700,106.703900,90,'seed-hcm-nguyen-hue'),
 
-INSERT INTO flights (destination_id, airline, flight_no, origin, destination, price, cabin_class, depart_at, arrive_at, monthly_prices, source) VALUES
+    ('hoi-an','Phố cổ Hội An','pho-co-hoi-an','heritage','["historic","cultural"]','Khu phố cổ di sản với nhà cổ, hội quán, đèn lồng và ẩm thực địa phương.',15.880100,108.338000,180,'seed-hoi-an-old-town'),
+    ('hoi-an','Chùa Cầu','chua-cau-hoi-an','historic','["historic","architecture"]','Biểu tượng kiến trúc của Hội An, nằm trong khu phố cổ.',15.877900,108.326900,45,'seed-hoi-an-japanese-bridge'),
+    ('hoi-an','Rừng dừa Bảy Mẫu','rung-dua-bay-mau','nature','["natural","amusements"]','Khu sinh thái sông nước với trải nghiệm thuyền thúng.',15.848000,108.377000,120,'seed-hoi-an-coconut'),
 
--- HAN → DAD (Đà Nẵng)
-((SELECT id FROM da_nang), 'VietJet Air','VJ521','HAN','DAD', 980000, 'economy',
- '2026-06-17 06:30', '2026-06-17 07:50',
- '{"2026-06": 980000, "2026-07": 1250000, "2026-08": 1380000}', 'crawl'),
+    ('phu-quoc','Bãi Sao','bai-sao-phu-quoc','beach','["beaches","natural"]','Bãi biển cát trắng nổi tiếng ở phía Nam Phú Quốc.',10.058800,104.035600,180,'seed-pq-bai-sao'),
+    ('phu-quoc','Dinh Cậu','dinh-cau-phu-quoc','culture','["religion","view_points"]','Điểm ngắm hoàng hôn và địa danh văn hóa tại Dương Đông.',10.219600,103.958100,60,'seed-pq-dinh-cau'),
+    ('phu-quoc','Hòn Thơm','hon-thom-phu-quoc','island','["beaches","amusements"]','Đảo phía Nam Phú Quốc, nổi bật với cáp treo biển và hoạt động vui chơi.',9.957200,104.017900,240,'seed-pq-hon-thom'),
 
-((SELECT id FROM da_nang), 'Vietnam Airlines','VN161','HAN','DAD', 1450000, 'economy',
- '2026-06-17 07:00', '2026-06-17 08:20',
- '{"2026-06": 1450000, "2026-07": 1650000, "2026-08": 1720000}', 'crawl'),
+    ('nha-trang','Tháp Bà Ponagar','thap-ba-ponagar','historic','["historic","cultural","religion"]','Di tích Chăm Pa nổi bật bên sông Cái.',12.265400,109.195300,90,'seed-nt-ponagar'),
+    ('nha-trang','Hòn Mun','hon-mun','island','["natural","beaches"]','Khu vực đảo nổi tiếng với lặn ngắm san hô.',12.165200,109.303200,240,'seed-nt-hon-mun'),
+    ('nha-trang','Bãi biển Trần Phú','bai-bien-tran-phu','beach','["beaches","urban"]','Bãi biển trung tâm thành phố, thuận tiện đi bộ và ăn uống.',12.238800,109.196700,120,'seed-nt-tran-phu'),
 
-((SELECT id FROM da_nang), 'Bamboo Airways','QH901','HAN','DAD', 1100000, 'economy',
- '2026-06-17 11:00', '2026-06-17 12:25',
- '{"2026-06": 1100000, "2026-07": 1300000}', 'crawl'),
+    ('da-lat','Hồ Xuân Hương','ho-xuan-huong','landmark','["natural","urban"]','Hồ trung tâm Đà Lạt, phù hợp đi dạo, đạp vịt và cà phê ven hồ.',11.941900,108.448300,90,'seed-dl-xuan-huong'),
+    ('da-lat','Thung lũng Tình Yêu','thung-lung-tinh-yeu','nature','["natural","gardens"]','Khu du lịch cảnh quan với hồ, đồi thông và vườn hoa.',11.978300,108.449300,180,'seed-dl-love-valley'),
+    ('da-lat','Đồi chè Cầu Đất','doi-che-cau-dat','nature','["natural","view_points"]','Vùng đồi chè và săn mây ngoại ô Đà Lạt.',11.812200,108.667500,180,'seed-dl-cau-dat'),
 
--- HAN → SGN (TP.HCM – transit hub cho Phú Quốc)
-((SELECT id FROM phu_quoc), 'VietJet Air','VJ130','HAN','SGN', 1200000, 'economy',
- '2026-06-14 06:00', '2026-06-14 07:55',
- '{"2026-06": 1200000, "2026-07": 1450000}', 'crawl'),
+    ('hue','Đại Nội Huế','dai-noi-hue','historic','["historic","cultural"]','Quần thể Hoàng thành và Tử Cấm Thành triều Nguyễn.',16.469500,107.577500,180,'seed-hue-citadel'),
+    ('hue','Lăng Khải Định','lang-khai-dinh','historic','["historic","architecture"]','Lăng vua Nguyễn nổi bật với kiến trúc giao thoa Đông Tây.',16.398200,107.590800,90,'seed-hue-khai-dinh'),
+    ('hue','Chùa Thiên Mụ','chua-thien-mu','religion','["religion","historic"]','Ngôi chùa cổ bên sông Hương, biểu tượng của Huế.',16.453900,107.545500,90,'seed-hue-thien-mu'),
 
--- SGN → PQC (Phú Quốc)
-((SELECT id FROM phu_quoc), 'VietJet Air','VJ836','SGN','PQC', 650000, 'economy',
- '2026-06-14 10:00', '2026-06-14 11:05',
- '{"2026-06": 650000, "2026-07": 890000}', 'crawl'),
+    ('ha-long','Vịnh Hạ Long','vinh-ha-long','bay','["natural","unesco"]','Vịnh biển với đảo đá vôi, hang động và trải nghiệm du thuyền.',20.910100,107.183900,300,'seed-hl-bay'),
+    ('ha-long','Hang Sửng Sốt','hang-sung-sot','cave','["natural","caves"]','Hang động nổi bật trên tuyến tham quan vịnh Hạ Long.',20.846900,107.091600,90,'seed-hl-sung-sot'),
+    ('ha-long','Đảo Ti Tốp','dao-ti-top','island','["beaches","view_points"]','Đảo có bãi tắm nhỏ và điểm leo ngắm toàn cảnh vịnh.',20.855600,107.081900,120,'seed-hl-titop'),
 
--- HAN → BKK (Bangkok)
-((SELECT id FROM bangkok), 'VietJet Air','VJ890','HAN','BKK', 1850000, 'economy',
- '2026-06-20 08:00', '2026-06-20 10:30',
- '{"2026-06": 1850000, "2026-07": 2100000, "2026-08": 2350000}', 'crawl'),
+    ('sapa','Fansipan','fansipan','mountain','["natural","view_points"]','Đỉnh núi cao nhất Việt Nam, có thể đi cáp treo hoặc trekking theo tour.',22.303300,103.775800,240,'seed-sapa-fansipan'),
+    ('sapa','Bản Cát Cát','ban-cat-cat','culture','["cultural","natural"]','Bản du lịch gần trung tâm Sapa, có thác nước và văn hóa H''Mông.',22.329600,103.821300,150,'seed-sapa-cat-cat'),
+    ('sapa','Đèo Ô Quy Hồ','deo-o-quy-ho','viewpoint','["natural","view_points"]','Cung đèo ngắm núi nổi tiếng giữa Lào Cai và Lai Châu.',22.348700,103.775100,120,'seed-sapa-o-quy-ho')
+)
+INSERT INTO pois
+    (destination_id, name, slug, category, kinds, description, lat, lng,
+     estimated_duration_min, source, source_ref, is_seeded, fetched_at)
+SELECT d.id, p.name, p.slug, p.category, p.kinds::jsonb, p.description, p.lat, p.lng,
+       p.estimated_duration_min, 'manual_seed', p.source_ref, TRUE, NOW()
+FROM poi_seed p
+JOIN destinations d ON d.slug = p.destination_slug;
 
-((SELECT id FROM bangkok), 'Bangkok Airways','PG961','HAN','BKK', 2800000, 'economy',
- '2026-06-20 10:30', '2026-06-20 13:00',
- '{"2026-06": 2800000, "2026-07": 3100000}', 'crawl'),
+-- ============================================================
+-- 5. COUNTRIES + VISA RULE FALLBACK
+-- ============================================================
 
--- HAN → NRT (Tokyo Narita)
-((SELECT id FROM tokyo), 'Vietnam Airlines','VN392','HAN','NRT', 7200000, 'economy',
- '2026-06-15 00:30', '2026-06-15 08:30',
- '{"2026-06": 7200000, "2026-07": 8500000}', 'crawl');
+INSERT INTO countries
+    (code, alpha3, name_en, name_vn, capital, region, subregion, currencies,
+     languages, timezones, calling_code, source, fetched_at, raw)
+VALUES
+('VN','VNM','Vietnam','Việt Nam','Hà Nội','Asia','South-Eastern Asia','[{"code":"VND","name":"Vietnamese đồng","symbol":"₫"}]','["Vietnamese"]','["UTC+07:00"]','+84','manual_seed',NOW(),'{}'),
+('TH','THA','Thailand','Thái Lan','Bangkok','Asia','South-Eastern Asia','[{"code":"THB","name":"Thai baht","symbol":"฿"}]','["Thai"]','["UTC+07:00"]','+66','manual_seed',NOW(),'{}'),
+('JP','JPN','Japan','Nhật Bản','Tokyo','Asia','Eastern Asia','[{"code":"JPY","name":"Japanese yen","symbol":"¥"}]','["Japanese"]','["UTC+09:00"]','+81','manual_seed',NOW(),'{}'),
+('SG','SGP','Singapore','Singapore','Singapore','Asia','South-Eastern Asia','[{"code":"SGD","name":"Singapore dollar","symbol":"$"}]','["English","Malay","Tamil","Chinese"]','["UTC+08:00"]','+65','manual_seed',NOW(),'{}'),
+('KR','KOR','South Korea','Hàn Quốc','Seoul','Asia','Eastern Asia','[{"code":"KRW","name":"South Korean won","symbol":"₩"}]','["Korean"]','["UTC+09:00"]','+82','manual_seed',NOW(),'{}'),
+('CN','CHN','China','Trung Quốc','Beijing','Asia','Eastern Asia','[{"code":"CNY","name":"Chinese yuan","symbol":"¥"}]','["Chinese"]','["UTC+08:00"]','+86','manual_seed',NOW(),'{}'),
+('FR','FRA','France','Pháp','Paris','Europe','Western Europe','[{"code":"EUR","name":"Euro","symbol":"€"}]','["French"]','["UTC-10:00","UTC+01:00","UTC+03:00"]','+33','manual_seed',NOW(),'{}'),
+('US','USA','United States','Mỹ','Washington, D.C.','Americas','North America','[{"code":"USD","name":"United States dollar","symbol":"$"}]','["English"]','["UTC-12:00","UTC-05:00","UTC-04:00"]','+1','manual_seed',NOW(),'{}'),
+('AU','AUS','Australia','Úc','Canberra','Oceania','Australia and New Zealand','[{"code":"AUD","name":"Australian dollar","symbol":"$"}]','["English"]','["UTC+08:00","UTC+10:00"]','+61','manual_seed',NOW(),'{}'),
+('GB','GBR','United Kingdom','Vương quốc Anh','London','Europe','Northern Europe','[{"code":"GBP","name":"British pound","symbol":"£"}]','["English"]','["UTC+00:00"]','+44','manual_seed',NOW(),'{}');
 
+INSERT INTO country_visa_rules
+    (passport_country_code, destination_country_code, visa_required, visa_type, max_stay_days, note, source_url, verified_at)
+VALUES
+('VN','VN',FALSE,'domestic',NULL,'Du lịch nội địa Việt Nam không cần visa.',NULL,CURRENT_DATE),
+('VN','TH',FALSE,'visa_free',30,'Công dân Việt Nam thường được miễn thị thực ngắn ngày khi du lịch Thái Lan; kiểm tra lại quy định trước khi bay.',NULL,CURRENT_DATE),
+('VN','SG',FALSE,'visa_free',30,'Công dân Việt Nam thường được miễn thị thực ngắn ngày khi du lịch Singapore; cần hộ chiếu còn hạn.',NULL,CURRENT_DATE),
+('VN','JP',TRUE,'sticker_or_evisa',NULL,'Nhật Bản thường yêu cầu visa với hộ chiếu Việt Nam; cần kiểm tra nguồn lãnh sự chính thức.',NULL,CURRENT_DATE),
+('VN','KR',TRUE,'sticker_or_evisa',NULL,'Hàn Quốc thường yêu cầu visa với hộ chiếu Việt Nam; cần kiểm tra nguồn lãnh sự chính thức.',NULL,CURRENT_DATE),
+('VN','CN',TRUE,'sticker',NULL,'Trung Quốc thường yêu cầu visa với hộ chiếu Việt Nam; cần kiểm tra nguồn lãnh sự chính thức.',NULL,CURRENT_DATE),
+('VN','FR',TRUE,'schengen',NULL,'Pháp thuộc khối Schengen, thường yêu cầu visa Schengen với hộ chiếu Việt Nam.',NULL,CURRENT_DATE),
+('VN','US',TRUE,'sticker',NULL,'Mỹ yêu cầu visa với hộ chiếu Việt Nam.',NULL,CURRENT_DATE),
+('VN','AU',TRUE,'evisa_or_visitor',NULL,'Úc yêu cầu visa visitor/eVisitor phù hợp với hộ chiếu và mục đích chuyến đi.',NULL,CURRENT_DATE),
+('VN','GB',TRUE,'visitor_visa',NULL,'Vương quốc Anh thường yêu cầu visa visitor với hộ chiếu Việt Nam.',NULL,CURRENT_DATE);
 
--- ── SAMPLE USERS ─────────────────────────────────────────────
+-- ============================================================
+-- 6. PACKING TEMPLATES
+-- ============================================================
 
-INSERT INTO users (full_name, email, travel_preferences, total_points, level) VALUES
+WITH beach AS (
+    INSERT INTO packing_templates
+        (name, trip_type, season, day_min, day_max, activities, traveler_tags, priority)
+    VALUES
+        ('Biển mùa hè 3-5 ngày', 'beach', 'summer', 3, 5, '["swim","snorkel","walk"]', '[]', 10)
+    RETURNING id
+), mountain AS (
+    INSERT INTO packing_templates
+        (name, trip_type, season, day_min, day_max, activities, traveler_tags, priority)
+    VALUES
+        ('Núi/trekking mùa mát 3-5 ngày', 'mountain', 'cool', 3, 5, '["trekking","photo","walk"]', '[]', 20)
+    RETURNING id
+), city AS (
+    INSERT INTO packing_templates
+        (name, trip_type, season, day_min, day_max, activities, traveler_tags, priority)
+    VALUES
+        ('City break 2-4 ngày', 'city', 'dry', 2, 4, '["food","shopping","walk"]', '[]', 30)
+    RETURNING id
+), rainy AS (
+    INSERT INTO packing_templates
+        (name, trip_type, season, day_min, day_max, activities, traveler_tags, priority)
+    VALUES
+        ('Du lịch mùa mưa 3-5 ngày', 'general', 'rainy', 3, 5, '["walk","photo"]', '[]', 40)
+    RETURNING id
+)
+INSERT INTO packing_template_items
+    (template_id, category, item_name, quantity_rule, note, is_default_checked, sort_order)
+SELECT id, category, item_name, quantity_rule, note, is_default_checked, sort_order
+FROM beach, (VALUES
+    ('clothing','Đồ bơi','fixed:2','Mang thêm túi chống nước cho đồ ướt.',TRUE,1),
+    ('clothing','Áo phông thoáng mát','days','Ưu tiên chất liệu nhanh khô.',TRUE,2),
+    ('accessories','Kính mát','fixed:1',NULL,TRUE,3),
+    ('accessories','Dép biển','fixed:1',NULL,TRUE,4),
+    ('health','Kem chống nắng SPF50+','fixed:1','Bôi lại sau khi tắm biển.',TRUE,5),
+    ('health','Thuốc say sóng/say xe','fixed:1','Cần nếu đi đảo hoặc tàu cao tốc.',TRUE,6),
+    ('documents','CCCD/Hộ chiếu','fixed:1',NULL,TRUE,7),
+    ('electronics','Sạc dự phòng','fixed:1',NULL,TRUE,8)
+) AS v(category, item_name, quantity_rule, note, is_default_checked, sort_order)
+UNION ALL
+SELECT id, category, item_name, quantity_rule, note, is_default_checked, sort_order
+FROM mountain, (VALUES
+    ('clothing','Áo khoác gió','fixed:1','Nhiệt độ vùng núi xuống nhanh buổi tối.',TRUE,1),
+    ('clothing','Quần dài trekking','fixed:2',NULL,TRUE,2),
+    ('accessories','Giày trekking','fixed:1','Không dùng giày mới chưa đi thử.',TRUE,3),
+    ('accessories','Balo nhỏ đi trong ngày','fixed:1',NULL,TRUE,4),
+    ('health','Thuốc đau bụng/đau đầu','fixed:1',NULL,TRUE,5),
+    ('health','Miếng dán cá nhân','fixed:1','Hữu ích khi đi bộ nhiều.',TRUE,6),
+    ('documents','CCCD/Hộ chiếu','fixed:1',NULL,TRUE,7),
+    ('electronics','Đèn pin nhỏ','fixed:1',NULL,TRUE,8)
+) AS v(category, item_name, quantity_rule, note, is_default_checked, sort_order)
+UNION ALL
+SELECT id, category, item_name, quantity_rule, note, is_default_checked, sort_order
+FROM city, (VALUES
+    ('clothing','Trang phục đi bộ thoải mái','days',NULL,TRUE,1),
+    ('clothing','Một bộ lịch sự','fixed:1','Dùng khi đi nhà hàng hoặc check-in nơi yêu cầu dress code.',FALSE,2),
+    ('accessories','Túi đeo chéo chống trộm','fixed:1',NULL,TRUE,3),
+    ('health','Khẩu trang/gel rửa tay','fixed:1',NULL,TRUE,4),
+    ('documents','Thẻ ATM/thẻ tín dụng','fixed:1',NULL,TRUE,5),
+    ('documents','CCCD/Hộ chiếu','fixed:1',NULL,TRUE,6),
+    ('electronics','Cáp sạc điện thoại','fixed:1',NULL,TRUE,7),
+    ('electronics','Tai nghe','fixed:1',NULL,FALSE,8)
+) AS v(category, item_name, quantity_rule, note, is_default_checked, sort_order)
+UNION ALL
+SELECT id, category, item_name, quantity_rule, note, is_default_checked, sort_order
+FROM rainy, (VALUES
+    ('clothing','Áo khoác chống nước nhẹ','fixed:1',NULL,TRUE,1),
+    ('accessories','Ô gấp hoặc áo mưa mỏng','fixed:1',NULL,TRUE,2),
+    ('accessories','Túi chống nước','fixed:1','Bảo vệ giấy tờ và điện thoại.',TRUE,3),
+    ('health','Thuốc cảm/sốt','fixed:1',NULL,TRUE,4),
+    ('health','Dầu gió hoặc thuốc côn trùng','fixed:1',NULL,FALSE,5),
+    ('documents','CCCD/Hộ chiếu','fixed:1',NULL,TRUE,6),
+    ('electronics','Sạc dự phòng','fixed:1',NULL,TRUE,7),
+    ('electronics','Túi zip cho thiết bị','fixed:1',NULL,TRUE,8)
+) AS v(category, item_name, quantity_rule, note, is_default_checked, sort_order);
+
+-- ============================================================
+-- 7. SAMPLE USER/TRIP WITHOUT FAKE PRICE SNAPSHOTS
+-- ============================================================
+
+INSERT INTO users (full_name, email, travel_preferences, total_points, level)
+VALUES
 ('Nguyễn Lan', 'nguyen.lan@gmail.com',
- '{"budget_range": [8, 15], "hotel_stars": 3, "food": ["seafood","street_food"], "trip_type": ["couple","family"]}',
+ '{"budget_range": [8000000, 15000000], "hotel_stars": 3, "food": ["seafood","street_food"], "trip_type": ["couple","family"]}',
  2450, 'Explorer'),
-('Trần Huy',   'tran.huy@gmail.com',
- '{"budget_range": [5, 10], "hotel_stars": 2, "food": ["street_food"], "trip_type": ["backpacker","solo"]}',
- 980, 'Explorer'),
-('Minh Khoa',  'minhkhoa.bk@gmail.com',
- '{"budget_range": [15, 30], "hotel_stars": 4, "food": ["fine_dining","local"], "trip_type": ["couple"]}',
- 5600, 'Adventurer');
+('Trần Huy', 'tran.huy@gmail.com',
+ '{"budget_range": [5000000, 10000000], "hotel_stars": 2, "food": ["street_food"], "trip_type": ["backpacker","solo"]}',
+ 980, 'Explorer');
 
-
--- ── SAMPLE TRIP (Đà Nẵng – Hội An 5N4Đ) ─────────────────────
-
-WITH u AS (SELECT id FROM users WHERE email='nguyen.lan@gmail.com'),
-     trip_ins AS (
-       INSERT INTO trips (owner_id, title, start_date, end_date, budget, status, is_public)
-       VALUES ((SELECT id FROM u), 'Đà Nẵng – Hội An 5N4Đ tháng 6',
-               '2026-06-14', '2026-06-18', 10000000, 'confirmed', TRUE)
-       RETURNING id
-     ),
-     day1 AS (INSERT INTO trip_days (trip_id, day_number, date) VALUES ((SELECT id FROM trip_ins), 1, '2026-06-14') RETURNING id),
-     day2 AS (INSERT INTO trip_days (trip_id, day_number, date) VALUES ((SELECT id FROM trip_ins), 2, '2026-06-15') RETURNING id),
-     day3 AS (INSERT INTO trip_days (trip_id, day_number, date) VALUES ((SELECT id FROM trip_ins), 3, '2026-06-16') RETURNING id)
-
-INSERT INTO itinerary_items (day_id, destination_id, item_type, title, start_time, cost, sort_order)
-SELECT day1.id, d.id, 'attraction', 'Bãi biển Mỹ Khê – buổi sáng', '06:00', 0, 1
-FROM day1, destinations d WHERE d.slug='da-nang'
+WITH u AS (
+    SELECT id FROM users WHERE email='nguyen.lan@gmail.com'
+), t AS (
+    INSERT INTO trips (owner_id, destination_id, title, start_date, end_date, budget_amount, status, is_public)
+    VALUES (
+        (SELECT id FROM u),
+        (SELECT id FROM destinations WHERE slug='da-nang'),
+        'Đà Nẵng - Hội An 5N4Đ',
+        '2026-07-14',
+        '2026-07-18',
+        10000000,
+        'planning',
+        TRUE
+    )
+    RETURNING id
+), d1 AS (
+    INSERT INTO trip_days (trip_id, day_number, date)
+    VALUES ((SELECT id FROM t), 1, '2026-07-14')
+    RETURNING id
+), d2 AS (
+    INSERT INTO trip_days (trip_id, day_number, date)
+    VALUES ((SELECT id FROM t), 2, '2026-07-15')
+    RETURNING id
+)
+INSERT INTO itinerary_items
+    (day_id, item_type, title, destination_id, poi_id, start_time, duration_min, cost_amount, sort_order)
+SELECT d1.id, 'poi', 'Bãi biển Mỹ Khê buổi sáng',
+       (SELECT id FROM destinations WHERE slug='da-nang'),
+       (SELECT id FROM pois WHERE slug='bai-bien-my-khe'),
+       '06:00'::TIME, 120, 0, 1
+FROM d1
 UNION ALL
-SELECT day1.id, d.id, 'attraction', 'Bà Nà Hills – Cầu Vàng', '14:00', 750000, 2
-FROM day1, destinations d WHERE d.slug='da-nang'
+SELECT d1.id, 'poi', 'Ngũ Hành Sơn',
+       (SELECT id FROM destinations WHERE slug='da-nang'),
+       (SELECT id FROM pois WHERE slug='ngu-hanh-son'),
+       '14:00'::TIME, 180, 0, 2
+FROM d1
 UNION ALL
-SELECT day2.id, d.id, 'attraction', 'Ngũ Hành Sơn', '09:00', 40000, 1
-FROM day2, destinations d WHERE d.slug='da-nang'
-UNION ALL
-SELECT day3.id, d.id, 'attraction', 'Phố cổ Hội An – đèn lồng', '19:00', 120000, 1
-FROM day3, destinations d WHERE d.slug='hoi-an';
+SELECT d2.id, 'poi', 'Phố cổ Hội An buổi tối',
+       (SELECT id FROM destinations WHERE slug='hoi-an'),
+       (SELECT id FROM pois WHERE slug='pho-co-hoi-an'),
+       '19:00'::TIME, 180, 0, 1
+FROM d2;
 
+INSERT INTO reviews (user_id, destination_id, rating, content, helpful_count)
+VALUES
+((SELECT id FROM users WHERE email='nguyen.lan@gmail.com'),
+ (SELECT id FROM destinations WHERE slug='da-nang'),
+ 4.5,
+ 'Đà Nẵng phù hợp cho lịch trình tự túc: biển gần trung tâm, dễ ghép Hội An, nhiều lựa chọn ăn uống.',
+ 47);
 
--- ── SAMPLE REVIEWS ───────────────────────────────────────────
+-- ============================================================
+-- 8. SUMMARY
+-- ============================================================
 
-WITH u1 AS (SELECT id FROM users WHERE email='nguyen.lan@gmail.com'),
-     u2 AS (SELECT id FROM users WHERE email='tran.huy@gmail.com')
-
-INSERT INTO reviews (user_id, destination_id, rating, content, helpful_count) VALUES
-((SELECT id FROM u1), (SELECT id FROM destinations WHERE slug='da-nang'),
- 4.5, 'Đà Nẵng mùa hè đẹp lắm! Biển Mỹ Khê sóng nhỏ, nước trong. Bà Nà Hills nên đặt vé online để tránh xếp hàng. Ăn hải sản bờ biển ngon mà giá bình dân hơn trong phố nhiều.', 47),
-((SELECT id FROM u2), (SELECT id FROM destinations WHERE slug='hoi-an'),
- 5.0, 'Hội An đẹp không tưởng vào buổi tối. Ra phố cổ lúc 7-8h tối, đèn lồng lung linh, thả đèn hoa đăng xuống sông Thu Bồn. Cao lầu ở đây ngon hơn bất kỳ nơi nào khác vì dùng nước giếng Bá Lễ.', 103);
-
-
--- Xác nhận
 SELECT 'destinations' AS tbl, COUNT(*) FROM destinations
+UNION ALL SELECT 'airports', COUNT(*) FROM airports
+UNION ALL SELECT 'airlines', COUNT(*) FROM airlines
+UNION ALL SELECT 'flight_routes', COUNT(*) FROM flight_routes
+UNION ALL SELECT 'flight_price_snapshots', COUNT(*) FROM flight_price_snapshots
 UNION ALL SELECT 'hotels', COUNT(*) FROM hotels
-UNION ALL SELECT 'flights', COUNT(*) FROM flights
-UNION ALL SELECT 'users',   COUNT(*) FROM users
-UNION ALL SELECT 'trips',   COUNT(*) FROM trips
+UNION ALL SELECT 'hotel_rate_snapshots', COUNT(*) FROM hotel_rate_snapshots
+UNION ALL SELECT 'pois', COUNT(*) FROM pois
+UNION ALL SELECT 'countries', COUNT(*) FROM countries
+UNION ALL SELECT 'packing_templates', COUNT(*) FROM packing_templates
+UNION ALL SELECT 'packing_template_items', COUNT(*) FROM packing_template_items
+UNION ALL SELECT 'users', COUNT(*) FROM users
+UNION ALL SELECT 'trips', COUNT(*) FROM trips
 UNION ALL SELECT 'reviews', COUNT(*) FROM reviews;

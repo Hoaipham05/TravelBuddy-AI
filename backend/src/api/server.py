@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from src.cache.session import RedisClient, SessionStore, ResultStore, RateLimiter
 from src.config import SEARXNG_URL, AGENT_NAME, RATE_LIMIT_RPM
 from src.queue.streams import JobProducer
+from src.api.travel_data import router as travel_data_router
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(travel_data_router)
 
 _producer      = JobProducer()
 _result_store  = ResultStore()

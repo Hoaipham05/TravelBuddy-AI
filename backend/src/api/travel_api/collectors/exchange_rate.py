@@ -1,166 +1,186 @@
 """
 collectors/exchange_rate.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API:     Frankfurter  (https://www.frankfurter.app)
-Data:    Tỷ giá hối đoái realtime từ European Central Bank
-Key:     KHÔNG CẦN — hoàn toàn miễn phí
-Docs:    https://www.frankfurter.app/docs
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Frankfurter v2 exchange-rate collector.
 
-Dùng để:
-  - Hiển thị "1 USD = X VND" trong Trip Builder
-  - Tính tổng chi phí chuyến đi nước ngoài sang VND
-  - Cảnh báo biến động tỷ giá khi book tour
+Strategy:
+  - Fetch USD-based rates including VND, then derive VND -> target and
+    target -> VND rates for UI conversion.
+  - Cache TTL: 1 hour.
+  - Persist latest rows to exchange_rate_cache and same rows to history.
 """
 
-import json, logging
-from datetime import datetime
+from __future__ import annotations
+
+import logging
+from datetime import date, datetime, timedelta
+from typing import Any
+
 from utils.helpers import safe_get, log_response
+from db.connection import expires_in, upsert_exchange_rate
 
 log = logging.getLogger(__name__)
 
-BASE = "https://api.frankfurter.app"
-
-# Các cặp tiền tệ cần theo dõi cho Travel Buddy
-BASE_CURRENCY = "VND"
-TARGET_CURRENCIES = ["USD", "EUR", "THB", "JPY", "SGD", "KRW", "GBP", "CNY"]
+BASE = "https://api.frankfurter.dev/v2"
+FALLBACK_BASE = "https://open.er-api.com/v6/latest/USD"
+TARGET_CURRENCIES = ["VND", "USD", "EUR", "THB", "JPY", "SGD", "KRW", "GBP", "CNY", "AUD"]
 
 
 class ExchangeRateCollector:
-
     def fetch_latest(self) -> dict | None:
-        """
-        GET /latest?from=USD&to=VND,THB,JPY,...
-        Frankfurter không hỗ trợ VND làm base currency trực tiếp,
-        nên ta lấy từ USD và tính ngược.
-        """
-        r = safe_get(f"{BASE}/latest", params={
-            "from": "USD",
-            "to":   ",".join(TARGET_CURRENCIES + ["VND"]),
-        })
+        r = safe_get(
+            f"{BASE}/rates",
+            params={"base": "USD", "quotes": ",".join(TARGET_CURRENCIES)},
+        )
         if not r:
             return None
-        log_response("Frankfurter", r, ["date", "rates"])
+        log_response("Frankfurter", r, ["date", "rates", "data"])
         return r.json()
 
-    def fetch_historical(self, days_back: int = 30) -> list[dict]:
-        """
-        GET /YYYY-MM-DD..YYYY-MM-DD?from=USD&to=VND
-        Lấy lịch sử tỷ giá 30 ngày để vẽ biểu đồ xu hướng.
-        """
-        from datetime import date, timedelta
-        end   = date.today().isoformat()
-        start = (date.today() - timedelta(days=days_back)).isoformat()
-
-        r = safe_get(f"{BASE}/{start}..{end}", params={
-            "from": "USD",
-            "to":   "VND,THB,JPY,SGD",
-        })
+    def fetch_latest_fallback(self) -> dict | None:
+        r = safe_get(FALLBACK_BASE)
         if not r:
+            return None
+        log_response("ExchangeRate-API Open Access", r, ["result", "base_code", "rates"])
+        return r.json()
+
+    def fetch_history(self, days_back: int = 30) -> dict | None:
+        end = date.today()
+        start = end - timedelta(days=days_back)
+        r = safe_get(
+            f"{BASE}/rates",
+            params={
+                "from": start.isoformat(),
+                "to": end.isoformat(),
+                "base": "USD",
+                "quotes": "VND,THB,JPY,SGD,EUR",
+            },
+        )
+        if not r:
+            return None
+        return r.json()
+
+    def _extract_rates_payload(self, raw: dict | list) -> tuple[str, dict[str, float]]:
+        """
+        Frankfurter has had multiple public shapes. Support:
+          - {"date": "...", "rates": {...}}
+          - {"data": {"date": "...", "rates": {...}}}
+          - {"data": [{"date": "...", "rates": {...}}, ...]}
+        """
+        data: Any = raw.get("data", raw) if isinstance(raw, dict) else raw
+        if isinstance(data, list):
+            data = data[-1] if data else {}
+        if isinstance(data, dict) and "rates" in data:
+            fallback_date = raw.get("date") if isinstance(raw, dict) else None
+            return data.get("date", fallback_date or datetime.utcnow().date().isoformat()), data.get("rates", {})
+        if isinstance(raw, dict):
+            if raw.get("result") == "success" and isinstance(raw.get("rates"), dict):
+                updated = raw.get("time_last_update_utc", "")
+                rate_date = datetime.utcnow().date().isoformat()
+                if updated:
+                    try:
+                        rate_date = datetime.strptime(updated, "%a, %d %b %Y %H:%M:%S %z").date().isoformat()
+                    except ValueError:
+                        pass
+                return rate_date, raw["rates"]
+            return raw.get("date", datetime.utcnow().date().isoformat()), raw.get("rates", {})
+        return datetime.utcnow().date().isoformat(), {}
+
+    def _extract_history_rows(self, raw: dict | list) -> list[tuple[str, dict[str, float]]]:
+        data: Any = raw.get("data", raw) if isinstance(raw, dict) else raw
+        if isinstance(data, list):
+            return [(item.get("date"), item.get("rates", {})) for item in data if item.get("date")]
+        if isinstance(raw, dict) and isinstance(raw.get("rates"), dict):
+            rates = raw["rates"]
+            # Legacy time-series shape: {"rates": {"2026-01-01": {...}}}
+            if rates and all(isinstance(v, dict) for v in rates.values()):
+                return [(d, v) for d, v in sorted(rates.items())]
+        return []
+
+    def _rows_from_usd_rates(self, rate_date: str, rates_from_usd: dict[str, float], raw: dict) -> list[dict]:
+        vnd_per_usd = rates_from_usd.get("VND")
+        if not vnd_per_usd:
+            log.warning("Frankfurter response has no VND quote; cannot derive VND rates")
             return []
+        source = "exchange-rate-api-open" if isinstance(raw, dict) and raw.get("result") == "success" else "frankfurter"
 
-        data  = r.json()
-        rates = data.get("rates", {})  # {"2026-06-01": {"VND": 25430, ...}, ...}
-        result = [{"date": d, **v} for d, v in sorted(rates.items())]
-        log.info(f"[Frankfurter] Historical {start}..{end}: {len(result)} ngày")
-        return result
+        rows = [
+            {
+                "base_currency": "USD",
+                "target_currency": "VND",
+                "rate": vnd_per_usd,
+                "rate_date": rate_date,
+                "source": source,
+                "expires_at": expires_in(hours=1),
+                "raw": raw,
+            },
+            {
+                "base_currency": "VND",
+                "target_currency": "USD",
+                "rate": round(1 / vnd_per_usd, 10),
+                "rate_date": rate_date,
+                "source": source,
+                "expires_at": expires_in(hours=1),
+                "raw": raw,
+            },
+        ]
 
-    def parse_rates(self, raw: dict) -> dict:
-        """
-        Chuyển từ cơ sở USD → tính tỷ giá sang VND.
-        raw["rates"]: {"VND": 25430, "THB": 33.8, "JPY": 150.2, ...}
-        """
-        rates_from_usd = raw.get("rates", {})
-        vnd_per_usd    = rates_from_usd.get("VND", 25000)
-
-        # Tính: 1 đơn vị ngoại tệ = ? VND
-        vnd_rates = {}
-        for currency, usd_rate in rates_from_usd.items():
-            if currency == "VND":
+        for currency, usd_to_currency in rates_from_usd.items():
+            if currency in {"USD", "VND"} or not usd_to_currency:
                 continue
-            if usd_rate and usd_rate > 0:
-                vnd_rates[currency] = round(vnd_per_usd / usd_rate, 2)
-
-        return {
-            "base":         "VND",
-            "date":         raw.get("date", datetime.now().strftime("%Y-%m-%d")),
-            "updated_at":   datetime.now().isoformat(),
-            "source":       "Frankfurter API (frankfurter.app) — data từ European Central Bank",
-            "usd_per_vnd":  round(1 / vnd_per_usd, 8),
-            "vnd_per_usd":  vnd_per_usd,
-            "rates":        vnd_rates,  # {"USD": 25430, "THB": 752, "JPY": 169, ...}
-        }
-
-    def save_to_db(self, conn, data: dict, history: list[dict] = None):
-        """Lưu tỷ giá hiện tại và lịch sử vào DB."""
-        cur = conn.cursor()
-
-        # Bảng tỷ giá hiện tại
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS exchange_rates (
-                base_currency  CHAR(3) NOT NULL,
-                target_currency CHAR(3) NOT NULL,
-                rate           NUMERIC(18, 4) NOT NULL,
-                rate_date      DATE NOT NULL,
-                source         TEXT,
-                updated_at     TIMESTAMPTZ DEFAULT NOW(),
-                PRIMARY KEY (base_currency, target_currency, rate_date)
+            rows.append(
+                {
+                    "base_currency": currency,
+                    "target_currency": "VND",
+                    "rate": round(vnd_per_usd / usd_to_currency, 6),
+                    "rate_date": rate_date,
+                    "source": source,
+                    "expires_at": expires_in(hours=1),
+                    "raw": raw,
+                }
             )
-        """)
-
-        # Lưu từng cặp tiền tệ
-        rate_date = data["date"]
-        for currency, rate in data["rates"].items():
-            cur.execute("""
-                INSERT INTO exchange_rates
-                    (base_currency, target_currency, rate, rate_date, source)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (base_currency, target_currency, rate_date)
-                DO UPDATE SET rate = EXCLUDED.rate, updated_at = NOW()
-            """, ("VND", currency, rate, rate_date, data["source"]))
-
-        conn.commit()
-        log.info(f"  💾 Exchange rates ({rate_date}): "
-                 f"1 USD = {data['vnd_per_usd']:,.0f} VND, "
-                 f"1 THB = {data['rates'].get('THB', 0):,.0f} VND, "
-                 f"1 JPY = {data['rates'].get('JPY', 0):,.0f} VND")
-
-        # Lưu lịch sử nếu có
-        if history:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS exchange_rate_history (
-                    rate_date       DATE NOT NULL,
-                    currency        CHAR(3) NOT NULL,
-                    vnd_rate        NUMERIC(18,4),
-                    PRIMARY KEY (rate_date, currency)
-                )
-            """)
-            for row in history:
-                vnd = row.get("VND", 0)
-                for curr in ["THB", "JPY", "SGD"]:
-                    val = row.get(curr)
-                    if val and val > 0 and vnd > 0:
-                        cur.execute("""
-                            INSERT INTO exchange_rate_history (rate_date, currency, vnd_rate)
-                            VALUES (%s, %s, %s)
-                            ON CONFLICT DO NOTHING
-                        """, (row["date"], curr, round(vnd / val, 2)))
-            conn.commit()
-            log.info(f"  📈 Lịch sử tỷ giá: {len(history)} ngày")
+            rows.append(
+                {
+                    "base_currency": "VND",
+                    "target_currency": currency,
+                    "rate": round(usd_to_currency / vnd_per_usd, 10),
+                    "rate_date": rate_date,
+                    "source": source,
+                    "expires_at": expires_in(hours=1),
+                    "raw": raw,
+                }
+            )
+        return rows
 
     def run(self, conn):
-        log.info("💱  Frankfurter (Exchange Rate) Collector bắt đầu")
+        log.info("Frankfurter collector started")
 
-        # Tỷ giá hiện tại
         raw = self.fetch_latest()
         if not raw:
-            log.error("Không lấy được tỷ giá — bỏ qua")
+            log.error("Frankfurter latest fetch failed")
             return
 
-        parsed = self.parse_rates(raw)
+        rate_date, rates = self._extract_rates_payload(raw)
+        if not rates.get("VND"):
+            log.warning("Frankfurter response has no VND quote; falling back to ExchangeRate-API Open Access")
+            raw = self.fetch_latest_fallback()
+            if not raw:
+                log.error("ExchangeRate fallback fetch failed")
+                return
+            rate_date, rates = self._extract_rates_payload(raw)
 
-        # Lịch sử 30 ngày
-        history = self.fetch_historical(30)
+        rows = self._rows_from_usd_rates(rate_date, rates, raw)
+        for row in rows:
+            upsert_exchange_rate(conn, row)
 
-        self.save_to_db(conn, parsed, history)
-        log.info("✅ Frankfurter: tỷ giá đã cập nhật")
+        history_raw = self.fetch_history(30) if not (isinstance(raw, dict) and raw.get("result") == "success") else None
+        history_count = 0
+        if history_raw:
+            for hist_date, hist_rates in self._extract_history_rows(history_raw):
+                hist_rows = self._rows_from_usd_rates(hist_date, hist_rates, history_raw)
+                for row in hist_rows:
+                    # History rows do not need short cache semantics, but cache table
+                    # keeps the latest per date; expires_at is harmless for history.
+                    upsert_exchange_rate(conn, row)
+                    history_count += 1
+
+        log.info("Frankfurter collector finished: %s latest rows, %s history rows", len(rows), history_count)

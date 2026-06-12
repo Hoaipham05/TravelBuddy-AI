@@ -1,134 +1,49 @@
-# Travel Buddy — API Data Pipeline
+# TravelBuddy AI - Data Pipeline
 
-## Cấu trúc project
+Pipeline này ghi vào schema canonical tại `database/travel_buddy_db/01_schema.sql`.
 
-```
-travel_api/
-├── pipeline.py              # Điểm vào chính, chạy tất cả collectors
-├── .env.example             # Mẫu cấu hình API keys
-├── collectors/
-│   ├── opentripmap.py       # Điểm tham quan + khách sạn (OpenTripMap)
-│   ├── amadeus.py           # Vé máy bay realtime (Amadeus)
-│   ├── weather.py           # Thời tiết 7 ngày (Open-Meteo)
-│   ├── countries.py         # Thông tin quốc gia (RestCountries)
-│   └── exchange_rate.py     # Tỷ giá tiền tệ (Frankfurter)
-├── db/
-│   └── connection.py        # Kết nối PostgreSQL, helper upsert
-├── utils/
-│   └── helpers.py           # safe_get, slugify, log_response
-└── evidence/                # Raw JSON responses (minh chứng cho báo cáo)
-```
+## Collectors
 
----
+| Collector | Lệnh | Ghi vào bảng | Key |
+|---|---|---|---|
+| Weather | `python pipeline.py --only weather` | `weather_cache`, `weather_daily_forecasts` | Không cần key |
+| Exchange rate | `python pipeline.py --only exchange_rate` | `exchange_rate_cache`, `exchange_rate_history` | Không cần key |
+| Countries | `python pipeline.py --only countries` | `countries`, `country_visa_rules` | Optional `RESTCOUNTRIES_API_KEY` |
+| POI | `python pipeline.py --only opentripmap` | `pois`, `poi_images`, bổ sung `hotels` metadata | `OPENTRIPMAP_KEY` |
+| Hotels | `python pipeline.py --only hotels` | `hotels`, `hotel_images`, `hotel_rate_snapshots`, `hotel_offer_cache` | `SERPAPI_API_KEY` hoặc Booking partner credentials |
+| Flights | `python pipeline.py --only flights` | `flight_price_snapshots`, `flight_offer_cache` | `SERPAPI_API_KEY` hoặc Amadeus credentials |
 
-## Cài đặt
+## Chạy Trong Docker
 
 ```bash
-pip install requests psycopg2-binary python-dotenv
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --summary"
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only flights"
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only hotels"
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only weather"
+```
+
+## Chạy Local
+
+```bash
+cd backend/src/api/travel_api
 cp .env.example .env
-# Điền DB credentials + API keys vào .env
-```
-
----
-
-## Đăng ký API Keys
-
-### 1. OpenTripMap (điểm tham quan)
-- URL: https://dev.opentripmap.org/product
-- Thời gian: ~2 phút
-- Free tier: 500 request/ngày
-- Điền vào `.env`: `OPENTRIPMAP_KEY=...`
-
-### 2. Amadeus (vé máy bay)
-- URL: https://developers.amadeus.com → Self-Service → Create App
-- Thời gian: ~5 phút, cần tài khoản
-- Sandbox: unlimited requests, data gần thực
-- Điền vào `.env`: `AMADEUS_API_KEY=...` và `AMADEUS_API_SECRET=...`
-
-### 3. Open-Meteo, RestCountries, Frankfurter
-- **Không cần đăng ký** — gọi trực tiếp
-
----
-
-## Chạy pipeline
-
-```bash
-cd travel_api
-
-# Chạy 3 API không cần key ngay (để test)
-python pipeline.py --only weather
-python pipeline.py --only exchange_rate
-python pipeline.py --only countries
-
-# Sau khi có key
-python pipeline.py --only opentripmap
-python pipeline.py --only amadeus
-
-# Chạy tất cả
-python pipeline.py
-
-# Xem tóm tắt DB
 python pipeline.py --summary
+python pipeline.py --only weather
 ```
 
----
+## Nguyên Tắc Dữ Liệu
 
-## Nguồn dữ liệu — Bảng trích dẫn cho Báo cáo
+- Không seed giá vé/giá phòng mock.
+- Giá vé/phòng luôn là snapshot có `source`, `fetched_at`, `expires_at`.
+- Weather cache TTL 6 giờ.
+- Exchange rate cache TTL 1 giờ.
+- Flight snapshot TTL 24 giờ, realtime offer cache TTL 15 phút.
+- Hotel snapshot TTL 24 giờ, realtime offer cache TTL 30 phút.
+- POI tách khỏi `destinations` để Trip Builder cluster theo GPS.
+- Booking link là data: flight dùng `booking_url`, hotel dùng `deep_link_url`; nếu provider không trả deep link cụ thể thì dùng fallback chính thức.
 
-| STT | API | Nhà cung cấp | Loại data | License | URL |
-|-----|-----|-------------|-----------|---------|-----|
-| 1 | OpenTripMap API | OpenTripMap.com | Điểm tham quan, POI, khách sạn | CC BY-SA | https://dev.opentripmap.org |
-| 2 | Amadeus Flight Offers | Amadeus for Developers | Giá vé máy bay, lịch bay | Commercial (free sandbox) | https://developers.amadeus.com |
-| 3 | Open-Meteo API | Open-Meteo.com | Thời tiết realtime, dự báo 7 ngày | CC BY 4.0 | https://open-meteo.com |
-| 4 | REST Countries API v3.1 | restcountries.com | Thông tin quốc gia, tiền tệ, visa | Mozilla Public License 2.0 | https://restcountries.com |
-| 5 | Frankfurter API | Frankfurter.app | Tỷ giá hối đoái (nguồn ECB) | MIT | https://frankfurter.app |
+## Evidence
 
-> **Ghi chú cho báo cáo:** Toàn bộ response JSON raw được lưu trong thư mục `evidence/` mỗi lần chạy pipeline. File JSON có timestamp và metadata nguồn API — dùng làm minh chứng đính kèm báo cáo.
+Raw response từ provider được lưu trong thư mục `evidence/` khi collector chạy để làm minh chứng nguồn dữ liệu. Thư mục này là artifact runtime và không nên commit nếu chứa dữ liệu lớn hoặc nhạy cảm.
 
----
-
-## Minh chứng data cho giáo viên
-
-Sau khi chạy pipeline, thư mục `evidence/` sẽ có các file như:
-
-```
-evidence/
-├── flights_HAN_DAD_2026-06-17.json   ← Response thực từ Amadeus
-├── flights_HAN_BKK_2026-06-20.json
-├── price_metrics_HAN_DAD.json
-└── ...
-```
-
-Mỗi file có cấu trúc:
-```json
-{
-  "_meta": {
-    "source": "Amadeus for Developers API",
-    "env": "test",
-    "endpoint": "https://test.api.amadeus.com/v2/shopping/flight-offers",
-    "collected": "2026-06-09T14:30:00",
-    "docs": "https://developers.amadeus.com/self-service/category/flights"
-  },
-  "data": { ... raw response ... }
-}
-```
-
----
-
-## Luồng hoạt động trong hệ thống
-
-```
-Người dùng tìm chuyến đi
-        │
-        ▼
-Backend FastAPI nhận request
-        │
-        ├── destinations, hotels  ← DB (từ OpenTripMap, đã lưu)
-        ├── weather               ← DB (từ Open-Meteo, cập nhật hàng ngày)
-        ├── exchange_rates        ← DB (từ Frankfurter, cập nhật hàng ngày)
-        ├── country info          ← DB (từ RestCountries, ổn định)
-        └── flights               ← Gọi Amadeus API realtime (cache 15 phút)
-                │
-                ▼
-        Trả về response tổng hợp cho frontend
-```
+Log pipeline mặc định ghi vào `pipeline.log` trong working directory. Có thể đổi bằng biến `TRAVELBUDDY_PIPELINE_LOG`.

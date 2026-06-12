@@ -1,299 +1,270 @@
 """
 collectors/amadeus.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API:     Amadeus for Developers  (https://developers.amadeus.com)
-Data:    Giá vé máy bay, lịch bay thực tế
-Key:     Đăng ký miễn phí → sandbox không giới hạn
-Docs:    https://developers.amadeus.com/self-service/category/flights
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Amadeus Flight Offers Search collector.
 
-Endpoints dùng:
-  POST /v1/security/oauth2/token      → lấy access token
-  GET  /v2/shopping/flight-offers     → tìm chuyến bay + giá
-  GET  /v1/analytics/itinerary-price-metrics → xu hướng giá theo tháng
+Strategy:
+  - Top popular routes are stored in flight_routes.
+  - Each API result is stored as a flight_price_snapshots row with TTL 24h
+    for seeded route refresh.
+  - Realtime endpoint code can reuse search_flights + flight_offer_cache TTL 15m.
 """
 
-import os, json, time, logging
-from datetime import datetime, timedelta
+from __future__ import annotations
+
+import json
+import logging
+import os
+import re
+import time
+from datetime import date, datetime, timedelta
+
 from utils.helpers import safe_get, safe_post
-from db.connection import upsert_flight, get_dest_id
+from db.connection import (
+    expires_in,
+    get_or_create_flight_route,
+    upsert_flight_offer_cache,
+    upsert_flight_price_snapshot,
+)
 
 log = logging.getLogger(__name__)
 
-# Sandbox vs Production
 URLS = {
-    "test":       "https://test.api.amadeus.com",
+    "test": "https://test.api.amadeus.com",
     "production": "https://api.amadeus.com",
 }
 
-# IATA → destination slug trong DB
-IATA_SLUG = {
-    "DAD": "da-nang",
-    "SGN": "ho-chi-minh",
-    "PQC": "phu-quoc",
-    "DLI": "da-lat",
-    "CXR": "nha-trang",
-    "VDO": "ha-long",
-    "BKK": "bangkok",
-    "NRT": "tokyo",
-    "SIN": "singapore",
-    "HAN": None,   # điểm xuất phát, không cần dest_id
+AIRLINE_NAMES = {
+    "VN": "Vietnam Airlines",
+    "VJ": "VietJet Air",
+    "QH": "Bamboo Airways",
 }
 
-# Tuyến bay cần lấy (origin, dest, ngày tìm kiếm)
-ROUTES = [
-    ("HAN", "DAD"),
-    ("HAN", "SGN"),
-    ("HAN", "PQC"),
-    ("HAN", "DLI"),
-    ("HAN", "CXR"),
-    ("SGN", "DAD"),
-    ("SGN", "PQC"),
-    ("HAN", "BKK"),
-    ("HAN", "NRT"),
-    ("HAN", "SIN"),
+IATA_SLUG = {
+    "HAN": "ha-noi",
+    "SGN": "ho-chi-minh",
+    "DAD": "da-nang",
+    "PQC": "phu-quoc",
+    "CXR": "nha-trang",
+    "DLI": "da-lat",
+    "HUI": "hue",
+    "VDO": "ha-long",
+}
+
+POPULAR_ROUTES = [
+    ("HAN", "SGN", 1),
+    ("SGN", "HAN", 2),
+    ("HAN", "DAD", 3),
+    ("DAD", "HAN", 4),
+    ("SGN", "DAD", 5),
+    ("DAD", "SGN", 6),
+    ("HAN", "PQC", 7),
+    ("PQC", "HAN", 8),
+    ("SGN", "PQC", 9),
+    ("PQC", "SGN", 10),
+    ("HAN", "CXR", 11),
+    ("CXR", "HAN", 12),
+    ("SGN", "CXR", 13),
+    ("CXR", "SGN", 14),
+    ("HAN", "DLI", 15),
+    ("DLI", "HAN", 16),
+    ("SGN", "DLI", 17),
+    ("DLI", "SGN", 18),
+    ("HAN", "HUI", 19),
+    ("SGN", "HUI", 20),
 ]
 
 
-class AmadeusCollector:
+def parse_iso_duration_minutes(value: str | None) -> int | None:
+    if not value:
+        return None
+    match = re.fullmatch(r"PT(?:(\d+)H)?(?:(\d+)M)?", value)
+    if not match:
+        return None
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    return hours * 60 + minutes
 
+
+class AmadeusCollector:
     def __init__(self):
-        self.api_key    = os.getenv("AMADEUS_API_KEY")
+        self.api_key = os.getenv("AMADEUS_API_KEY")
         self.api_secret = os.getenv("AMADEUS_API_SECRET")
-        self.env        = os.getenv("AMADEUS_ENV", "test")
-        self.base_url   = URLS[self.env]
-        self.token      = None
+        self.env = os.getenv("AMADEUS_ENV", "test")
+        self.base_url = URLS.get(self.env, URLS["test"])
+        self.token = None
         self.token_expires_at = 0
 
         if not self.api_key or not self.api_secret:
-            raise ValueError(
-                "Thiếu AMADEUS_API_KEY / AMADEUS_API_SECRET trong .env\n"
-                "Đăng ký miễn phí: https://developers.amadeus.com"
-            )
+            raise ValueError("Missing AMADEUS_API_KEY / AMADEUS_API_SECRET")
 
-    # ── 1. Authentication ───────────────────────────────────────
     def authenticate(self) -> bool:
-        """
-        POST /v1/security/oauth2/token
-        Amadeus dùng OAuth2 client_credentials flow.
-        Token có hiệu lực 30 phút, tự động refresh khi hết hạn.
-        """
         if self.token and time.time() < self.token_expires_at - 60:
-            return True  # token vẫn còn hiệu lực
+            return True
 
         r = safe_post(
             f"{self.base_url}/v1/security/oauth2/token",
             data={
-                "grant_type":    "client_credentials",
-                "client_id":     self.api_key,
+                "grant_type": "client_credentials",
+                "client_id": self.api_key,
                 "client_secret": self.api_secret,
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         if not r:
-            log.error("[Amadeus] Authentication thất bại")
             return False
 
         data = r.json()
         self.token = data["access_token"]
         self.token_expires_at = time.time() + data.get("expires_in", 1799)
-        log.info(f"[Amadeus] ✅ Token lấy thành công (env={self.env})")
+        log.info("Amadeus authenticated (env=%s)", self.env)
         return True
 
     def _auth_header(self) -> dict:
         return {"Authorization": f"Bearer {self.token}"}
 
-    # ── 2. Tìm kiếm chuyến bay ──────────────────────────────────
-    def search_flights(self, origin: str, dest: str,
-                       depart_date: str, adults: int = 1,
-                       max_results: int = 10) -> list[dict]:
-        """
-        GET /v2/shopping/flight-offers
-        Trả về list offer: [{id, price, itineraries, validatingAirlineCodes, ...}]
-
-        Params:
-          originLocationCode:      IATA sân bay xuất phát
-          destinationLocationCode: IATA sân bay đến
-          departureDate:           YYYY-MM-DD
-          adults:                  số người lớn
-          currencyCode:            VND
-          max:                     số kết quả tối đa
-        """
+    def search_flights(
+        self,
+        origin: str,
+        destination: str,
+        depart_date: str,
+        adults: int = 1,
+        max_results: int = 20,
+    ) -> dict | None:
         if not self.authenticate():
-            return []
+            return None
 
+        params = {
+            "originLocationCode": origin,
+            "destinationLocationCode": destination,
+            "departureDate": depart_date,
+            "adults": adults,
+            "currencyCode": "VND",
+            "max": max_results,
+            "nonStop": "false",
+        }
         r = safe_get(
             f"{self.base_url}/v2/shopping/flight-offers",
-            params={
-                "originLocationCode":      origin,
-                "destinationLocationCode": dest,
-                "departureDate":           depart_date,
-                "adults":                  adults,
-                "currencyCode":            "VND",
-                "max":                     max_results,
-                "nonStop":                 "false",
-            },
+            params=params,
             headers=self._auth_header(),
         )
         if not r:
-            return []
+            return None
 
         data = r.json()
         offers = data.get("data", [])
-        log.info(f"[Amadeus] {origin}→{dest} {depart_date}: {len(offers)} chuyến bay")
-
-        # Log raw JSON để làm minh chứng
-        self._save_raw(f"flights_{origin}_{dest}_{depart_date}", data)
-        return offers
-
-    # ── 3. Xu hướng giá theo tháng ─────────────────────────────
-    def price_metrics(self, origin: str, dest: str,
-                      depart_date: str) -> dict | None:
-        """
-        GET /v1/analytics/itinerary-price-metrics
-        Trả về: giá thấp nhất, trung bình, cao nhất cho tuyến bay
-        trong khoảng thời gian nhất định.
-        Dùng để xây dựng tính năng Price Intelligence.
-        """
-        if not self.authenticate():
-            return None
-
-        r = safe_get(
-            f"{self.base_url}/v1/analytics/itinerary-price-metrics",
-            params={
-                "originIataCode":      origin,
-                "destinationIataCode": dest,
-                "departureDate":       depart_date,
-                "currencyCode":        "VND",
-            },
-            headers=self._auth_header(),
-        )
-        if not r:
-            return None
-
-        data = r.json()
-        self._save_raw(f"price_metrics_{origin}_{dest}", data)
+        log.info("Amadeus %s-%s %s: %s offers", origin, destination, depart_date, len(offers))
+        self._save_raw(f"flights_{origin}_{destination}_{depart_date}", data)
         return data
 
-    # ── 4. Parse offer → row cho DB ────────────────────────────
-    def _parse_offer(self, offer: dict, dest_id: str) -> dict | None:
-        """Chuyển Amadeus offer JSON → dict chuẩn cho bảng flights."""
+    def parse_offer(self, offer: dict, route_id: str) -> dict | None:
         try:
-            price_total = int(float(offer["price"]["total"]))
-            itinerary   = offer["itineraries"][0]
-            segments    = itinerary["segments"]
-            first_seg   = segments[0]
-            last_seg    = segments[-1]
+            itinerary = offer["itineraries"][0]
+            segments = itinerary["segments"]
+            first = segments[0]
+            last = segments[-1]
 
-            airline     = offer.get("validatingAirlineCodes", ["??"])[0]
-            flight_no   = f"{first_seg['carrierCode']}{first_seg['number']}"
-            origin      = first_seg["departure"]["iataCode"]
-            destination = last_seg["arrival"]["iataCode"]
-            depart_at   = first_seg["departure"]["at"]
-            arrive_at   = last_seg["arrival"]["at"]
+            airline_iata = (offer.get("validatingAirlineCodes") or [first.get("carrierCode") or ""])[0]
+            flight_number = f"{first.get('carrierCode', '')}{first.get('number', '')}"
+            departure_at = first["departure"]["at"]
 
-            # Số điểm dừng
-            stops = len(segments) - 1
-            cabin = offer["travelerPricings"][0]["fareDetailsBySegment"][0].get(
-                "cabin", "ECONOMY"
-            ).lower()
+            cabin = "economy"
+            traveler_pricing = offer.get("travelerPricings") or []
+            if traveler_pricing:
+                fare_details = traveler_pricing[0].get("fareDetailsBySegment") or []
+                if fare_details:
+                    cabin = (fare_details[0].get("cabin") or "economy").lower()
 
             return {
-                "destination_id": dest_id,
-                "airline":        airline,
-                "flight_no":      flight_no,
-                "origin":         origin,
-                "destination":    destination,
-                "price":          price_total,
-                "cabin_class":    cabin,
-                "depart_at":      depart_at,
-                "arrive_at":      arrive_at,
-                "monthly_prices": json.dumps({}),
-                "source":         f"amadeus_{self.env}",
-                # metadata thêm để báo cáo
-                "_stops":         stops,
-                "_duration":      itinerary.get("duration", ""),
-                "_raw_price":     offer["price"],
+                "route_id": route_id,
+                "airline_iata": airline_iata if airline_iata in AIRLINE_NAMES else airline_iata or None,
+                "airline_name": AIRLINE_NAMES.get(airline_iata, airline_iata or "Unknown Airline"),
+                "flight_number": flight_number,
+                "cabin_class": cabin,
+                "departure_date": departure_at[:10],
+                "depart_at": departure_at,
+                "arrive_at": last["arrival"]["at"],
+                "duration_minutes": parse_iso_duration_minutes(itinerary.get("duration")),
+                "stops": max(0, len(segments) - 1),
+                "price_amount": int(float(offer["price"]["total"])),
+                "currency": offer.get("price", {}).get("currency", "VND"),
+                "source": f"amadeus_{self.env}",
+                "source_ref": offer.get("id"),
+                "expires_at": expires_in(hours=24),
+                "raw": offer,
             }
-        except (KeyError, IndexError, ValueError) as e:
-            log.debug(f"Parse offer thất bại: {e}")
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            log.debug("Amadeus offer parse failed: %s", exc)
             return None
 
-    # ── 5. Lưu raw JSON làm minh chứng ─────────────────────────
     def _save_raw(self, name: str, data: dict):
-        """
-        Lưu raw response JSON vào thư mục evidence/.
-        Đây là MINH CHỨNG để báo cáo: data lấy từ Amadeus API.
-        """
-        import os
         os.makedirs("evidence", exist_ok=True)
-        path = f"evidence/{name}.json"
+        path = os.path.join("evidence", f"{name}.json")
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({
-                "_meta": {
-                    "source":    "Amadeus for Developers API",
-                    "env":       self.env,
-                    "endpoint":  f"{self.base_url}/v2/shopping/flight-offers",
-                    "collected": datetime.now().isoformat(),
-                    "docs":      "https://developers.amadeus.com/self-service/category/flights",
+            json.dump(
+                {
+                    "_meta": {
+                        "source": "Amadeus Flight Offers Search",
+                        "env": self.env,
+                        "endpoint": f"{self.base_url}/v2/shopping/flight-offers",
+                        "collected": datetime.now().isoformat(),
+                    },
+                    "data": data,
                 },
-                "data": data,
-            }, f, ensure_ascii=False, indent=2)
-        log.info(f"  📁 Raw JSON lưu tại: {path}")
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
 
-    # ── 6. Pipeline chính ───────────────────────────────────────
+    def collect_route(self, conn, origin: str, destination: str, depart_date: str, rank: int | None = None) -> int:
+        destination_slug = IATA_SLUG.get(destination)
+        route_id = get_or_create_flight_route(
+            conn,
+            origin,
+            destination,
+            destination_slug=destination_slug,
+            is_popular_seed=rank is not None,
+            popularity_rank=rank,
+        )
+
+        raw = self.search_flights(origin, destination, depart_date, max_results=20)
+        if not raw:
+            return 0
+
+        cache_key = f"{origin}:{destination}:{depart_date}:1:economy"
+        upsert_flight_offer_cache(conn, cache_key, route_id, {
+            "origin": origin,
+            "destination": destination,
+            "departureDate": depart_date,
+            "adults": 1,
+            "currencyCode": "VND",
+        }, raw, ttl_minutes=15)
+
+        saved = 0
+        for offer in raw.get("data", []):
+            parsed = self.parse_offer(offer, route_id)
+            if not parsed:
+                continue
+            upsert_flight_price_snapshot(conn, parsed)
+            saved += 1
+        return saved
+
     def run(self, conn):
-        log.info("✈  Amadeus Collector bắt đầu")
-
+        log.info("Amadeus collector started")
         if not self.authenticate():
-            log.error("Amadeus auth thất bại — bỏ qua collector này")
+            log.error("Amadeus auth failed")
             return
 
-        # Lấy data cho 3 ngày tiêu biểu (thứ 3 tuần tới = rẻ nhất)
-        today = datetime.today()
+        today = date.today()
         search_dates = [
-            (today + timedelta(days=7)).strftime("%Y-%m-%d"),   # 1 tuần
-            (today + timedelta(days=30)).strftime("%Y-%m-%d"),  # 1 tháng
-            (today + timedelta(days=60)).strftime("%Y-%m-%d"),  # 2 tháng
+            (today + timedelta(days=7)).isoformat(),
+            (today + timedelta(days=14)).isoformat(),
+            (today + timedelta(days=30)).isoformat(),
         ]
 
-        total_saved = 0
-        for origin, dest in ROUTES:
-            dest_slug = IATA_SLUG.get(dest)
-            if not dest_slug:
-                continue
+        total = 0
+        for origin, destination, rank in POPULAR_ROUTES:
+            for depart_date in search_dates:
+                total += self.collect_route(conn, origin, destination, depart_date, rank=rank)
+                time.sleep(0.4)
 
-            dest_id = get_dest_id(conn, dest_slug)
-            if not dest_id:
-                log.warning(f"Không tìm thấy destination slug={dest_slug} trong DB")
-                continue
-
-            # Lấy giá rẻ nhất qua các ngày
-            monthly: dict = {}
-            for date in search_dates:
-                offers = self.search_flights(origin, dest, date, max_results=5)
-                if not offers:
-                    continue
-
-                for offer in offers:
-                    parsed = self._parse_offer(offer, dest_id)
-                    if not parsed:
-                        continue
-
-                    # Gộp monthly_prices
-                    month_key = date[:7]  # "2026-06"
-                    if month_key not in monthly or parsed["price"] < monthly[month_key]:
-                        monthly[month_key] = parsed["price"]
-
-                    # Lưu chuyến bay vào DB
-                    parsed["monthly_prices"] = json.dumps(monthly)
-                    upsert_flight(conn, parsed)
-                    total_saved += 1
-
-                time.sleep(0.5)  # rate limit
-
-            # Lấy price metrics để làm biểu đồ xu hướng
-            self.price_metrics(origin, dest, search_dates[0])
-            time.sleep(1)
-
-        log.info(f"✅ Amadeus: đã lưu {total_saved} chuyến bay")
+        log.info("Amadeus collector finished: %s snapshots", total)

@@ -1,140 +1,105 @@
-# Travel Buddy — Hướng dẫn cài đặt Database
+# TravelBuddy AI - Database
 
-## Cấu trúc file
+Database này theo kiến trúc hybrid:
 
+- Flight routes seed sẵn, giá vé thật được ghi vào `flight_price_snapshots` qua collector.
+- Hotels có metadata seed, giá phòng thật được ghi vào `hotel_rate_snapshots` qua collector.
+- Weather dùng Open-Meteo primary, MET Norway fallback, cache vào `weather_cache` / `weather_daily_forecasts`.
+- POI lưu riêng trong `pois`, có tọa độ GPS để Trip Builder cluster và cho user tick vào note.
+- Packing template là rule/template deterministic, không AI generate runtime.
+- Exchange rate cache theo provider, TTL ngắn.
+- Country metadata lưu trong `countries`, visa MVP trong `country_visa_rules`.
+
+## Files
+
+```text
+01_schema.sql               # Canonical PostgreSQL schema
+02_seed_data.sql            # Seed nền: destinations, airports, routes, hotels metadata, POI tối thiểu, packing
+03_seed_pois_curated.sql    # Seed bổ sung 150 POI curated cho 10 điểm đến nội địa
+04_seed_booking_links.sql   # Chuẩn hóa/backfill link đặt vé, đặt phòng
+.env.example                # Biến môi trường cho DB và API keys
 ```
-travel_buddy_db/
-├── 01_schema.sql      # Tạo 11 bảng + indexes
-├── 02_seed_data.sql   # Insert data thực (10 điểm đến, 15+ khách sạn, 8 chuyến bay)
-├── 03_crawl_data.py   # Script crawl data thực từ web
-├── .env.example       # Mẫu file cấu hình
-└── README.md
-```
 
----
+## Chạy Local Bằng Docker
 
-## Bước 1 — Cài PostgreSQL và tạo database
+PostgreSQL được mount folder này vào container tại `/travel_buddy_db`.
 
 ```bash
-# Ubuntu/Debian
-sudo apt install postgresql postgresql-contrib
-
-# Tạo database
-psql -U postgres
-CREATE DATABASE travel_buddy;
-\q
+docker compose up -d postgres
+docker compose exec -T postgres psql -U postgres -d travel_buddy -f /travel_buddy_db/01_schema.sql
+docker compose exec -T postgres psql -U postgres -d travel_buddy -f /travel_buddy_db/02_seed_data.sql
+docker compose exec -T postgres psql -U postgres -d travel_buddy -f /travel_buddy_db/03_seed_pois_curated.sql
+docker compose exec -T postgres psql -U postgres -d travel_buddy -f /travel_buddy_db/04_seed_booking_links.sql
 ```
 
----
+Lưu ý: `01_schema.sql` sẽ drop và tạo lại schema. Không chạy lại file này trên DB đang có flight/hotel snapshots nếu muốn giữ dữ liệu đã crawl.
 
-## Bước 2 — Chạy schema và seed data
+## Dữ Liệu Seed Hiện Có
+
+Sau `02_seed_data.sql` + `03_seed_pois_curated.sql`:
+
+- 10 domestic destinations.
+- 9 domestic airports.
+- 3 airlines.
+- 20 popular domestic flight routes.
+- 30 hotel metadata seed, không có giá phòng mock.
+- 150 curated POI, mỗi destination có 15 POI.
+- Link đặt vé fallback cho 3 hãng bay chính.
+- Link đặt phòng fallback/provider cho hotels.
+- Country fallback, visa MVP, packing templates.
+
+Giá vé và giá phòng không nằm trong seed static. Chúng được nạp bằng pipeline thật vào snapshot tables.
+
+## Data Pipeline
+
+Từ thư mục `backend/src/api/travel_api`:
 
 ```bash
-# Tạo bảng
-psql -U postgres -d travel_buddy -f 01_schema.sql
-
-# Insert data mẫu thực tế
-psql -U postgres -d travel_buddy -f 02_seed_data.sql
+python pipeline.py --summary
+python pipeline.py --only flights
+python pipeline.py --only hotels
+python pipeline.py --only weather
+python pipeline.py --only exchange_rate
+python pipeline.py --only countries
+python pipeline.py --only opentripmap
 ```
 
-Sau bước này sẽ có sẵn:
-- 10 điểm đến (Đà Nẵng, Hội An, Hạ Long, Đà Lạt, Phú Quốc, Sapa, Nha Trang, Bangkok, Tokyo, Singapore)
-- 12 khách sạn thực tế với giá cụ thể
-- 8 chuyến bay với giá tham khảo theo tháng
-- 3 user mẫu + 1 chuyến đi mẫu 5N4Đ Đà Nẵng
-
----
-
-## Bước 3 — Crawl data thực từ web (tùy chọn)
+Trong Docker:
 
 ```bash
-# Cài thư viện
-pip install requests beautifulsoup4 psycopg2-binary python-dotenv
-
-# Tạo file .env
-cp .env.example .env
-# Điền thông tin DB vào .env
-
-# Chạy crawler
-python 03_crawl_data.py
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only flights"
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only hotels"
+docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline.py --only weather"
 ```
 
-### Lấy Amadeus API key (miễn phí, khuyên dùng)
-
-1. Đăng ký tại https://developers.amadeus.com
-2. Tạo app mới → chọn "Self-Service APIs"
-3. Copy `API Key` và `API Secret` vào `.env`
-4. Môi trường test: 100 request/ngày, không cần thẻ
+## API Keys
 
 ```env
-AMADEUS_API_KEY=your_key_here
-AMADEUS_API_SECRET=your_secret_here
+SERPAPI_API_KEY=
+SERPAPI_GOOGLE_DOMAIN=google.com
+SERPAPI_GL=vn
+SERPAPI_HL=vi
+
+FLIGHT_PRICE_PROVIDER=serpapi
+HOTEL_PRICE_PROVIDER=serpapi
+HOTEL_SEARCH_ADULTS=2
+
+AMADEUS_API_KEY=
+AMADEUS_API_SECRET=
+AMADEUS_ENV=test
+
+OPENTRIPMAP_KEY=
+OPENTRIPMAP_LANG=vi
 ```
 
----
+Không cần key:
 
-## Bước 4 — Kết nối với FastAPI
+- Open-Meteo forecast.
+- MET Norway Locationforecast fallback.
+- Frankfurter / exchange-rate fallback.
 
-```python
-# database.py
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-import os
+## Lưu Ý Quan Trọng
 
-DATABASE_URL = (
-    f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}"
-    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-)
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-```
-
-```python
-# main.py — ví dụ API tìm kiếm điểm đến
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from database import get_db
-
-app = FastAPI()
-
-@app.get("/destinations/search")
-def search_destinations(q: str, db: Session = Depends(get_db)):
-    results = db.execute("""
-        SELECT id, name, city, avg_rating, tags
-        FROM destinations
-        WHERE to_tsvector('simple', unaccent(name || ' ' || city))
-              @@ plainto_tsquery('simple', unaccent(:q))
-        ORDER BY avg_rating DESC
-        LIMIT 10
-    """, {"q": q}).fetchall()
-    return [dict(r) for r in results]
-
-@app.get("/flights/cheap")
-def get_cheap_flights(origin: str, dest: str, db: Session = Depends(get_db)):
-    results = db.execute("""
-        SELECT airline, flight_no, price, depart_at, monthly_prices
-        FROM flights
-        WHERE origin = :origin AND destination = :dest
-        ORDER BY price ASC
-        LIMIT 5
-    """, {"origin": origin, "dest": dest}).fetchall()
-    return [dict(r) for r in results]
-```
-
----
-
-## Câu trả lời cho giáo viên
-
-Khi giáo viên hỏi "data lấy từ đâu?", trả lời:
-
-> Hệ thống dùng 3 nguồn dữ liệu kết hợp:
-> 1. **Database tĩnh (PostgreSQL)**: Dữ liệu điểm đến, khách sạn, chuyến bay được thu thập thủ công và qua script crawl từ các trang du lịch thực tế (Agoda, VietJet) rồi lưu vào PostgreSQL.
-> 2. **Amadeus API**: Tích hợp API chính thức (miễn phí) của Amadeus để lấy giá vé máy bay realtime.
-> 3. **AI Search**: Trợ lý AI dùng web search để bổ sung thông tin mới nhất khi cần.
+- Không seed giá vé/giá phòng mock vào production flow.
+- POI curated là baseline cho MVP. Khi có `OPENTRIPMAP_KEY`, có thể refresh/enrich POI cho destination mới.
+- Các giá trị GPS trong seed đủ để cluster và hiển thị bản đồ MVP, nhưng nên verify lại tọa độ trước khi dùng cho navigation chính xác.

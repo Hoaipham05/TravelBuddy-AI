@@ -13,6 +13,7 @@
 #                  /ws/     → WebSocket
 #    api        → :8000 (internal only)
 #    worker     → no port (consumes Redis Stream)
+#    postgres   → :5432 (host localhost only) — structured travel DB
 #    redis      → :6379 (internal only)
 #    searxng    → :8080 (internal only)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,6 +82,27 @@ services:
     networks:
       - travelbuddy
 
+  # ── PostgreSQL – TravelBuddy structured data ─────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME:-travel_buddy}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASS:-travelbuddy_postgres_pass}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/travel_buddy_db:/travel_buddy_db:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-travel_buddy}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - travelbuddy
+
   # ── SearXNG ───────────────────────────────────────────────────────────────
   searxng:
     image: searxng/searxng:latest
@@ -112,12 +134,18 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme_redis_pass}@redis:6379/0
       - SEARXNG_URL=http://searxng:8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-travel_buddy}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASS=${DB_PASS:-travelbuddy_postgres_pass}
+      - TRAVELBUDDY_DATA_MODE=auto
       - API_HOST=0.0.0.0
       - API_PORT=8000
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
-      searxng:
+      redis:
         condition: service_healthy
     command: >
       uvicorn src.api.server:app
@@ -148,7 +176,15 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme_redis_pass}@redis:6379/0
       - SEARXNG_URL=http://searxng:8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-travel_buddy}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASS=${DB_PASS:-travelbuddy_postgres_pass}
+      - TRAVELBUDDY_DATA_MODE=auto
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     command: python -m src.queue.streams
@@ -195,6 +231,8 @@ networks:
 # ── Volumes ───────────────────────────────────────────────────────────────────
 volumes:
   redis_data:
+    driver: local
+  postgres_data:
     driver: local
   frontend_dist:
     driver: local

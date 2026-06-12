@@ -1,263 +1,270 @@
 """
 collectors/opentripmap.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API:     OpenTripMap  (https://dev.opentripmap.org)
-Data:    Điểm tham quan, khách sạn, POI tại Việt Nam
-Key:     Đăng ký miễn phí → 500 req/ngày
-Docs:    https://dev.opentripmap.org/docs
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OpenTripMap POI collector.
 
-Luồng:
-  1. geoname()       → lấy lat/lng của thành phố
-  2. radius_search() → lấy list POI xung quanh (xid)
-  3. place_detail()  → lấy chi tiết từng POI
-  4. parse + save   → lưu vào destinations / hotels
+Strategy:
+  - destinations table stores city-level destinations only.
+  - pois table stores attractions/places with GPS for Trip Builder clustering.
+  - hotel metadata may be supplemented from accomodations, but rates are not
+    generated here.
 """
 
-import os, json, time, logging
+from __future__ import annotations
+
+import json
+import logging
+import os
+import time
+
 from utils.helpers import safe_get, slugify
-from db.connection import upsert_destination, upsert_hotel, get_dest_id
+from db.connection import get_dest_id, upsert_destination, upsert_hotel, upsert_poi, upsert_poi_image
 
 log = logging.getLogger(__name__)
 
-BASE = "https://api.opentripmap.com/0.1/en/places"
+BASE = "https://api.opentripmap.com/0.1"
 
-# Danh sách thành phố cần lấy data
 CITIES = [
-    {"name": "Da Nang",   "slug": "da-nang",   "country": "VN", "vn_name": "Đà Nẵng"},
-    {"name": "Hoi An",    "slug": "hoi-an",    "country": "VN", "vn_name": "Hội An"},
-    {"name": "Ha Long",   "slug": "ha-long",   "country": "VN", "vn_name": "Hạ Long"},
-    {"name": "Da Lat",    "slug": "da-lat",    "country": "VN", "vn_name": "Đà Lạt"},
-    {"name": "Phu Quoc",  "slug": "phu-quoc",  "country": "VN", "vn_name": "Phú Quốc"},
+    {"name": "Da Nang", "slug": "da-nang", "country": "VN", "vn_name": "Đà Nẵng"},
+    {"name": "Hanoi", "slug": "ha-noi", "country": "VN", "vn_name": "Hà Nội"},
+    {"name": "Ho Chi Minh City", "slug": "ho-chi-minh", "country": "VN", "vn_name": "TP.HCM"},
+    {"name": "Hoi An", "slug": "hoi-an", "country": "VN", "vn_name": "Hội An"},
+    {"name": "Phu Quoc", "slug": "phu-quoc", "country": "VN", "vn_name": "Phú Quốc"},
     {"name": "Nha Trang", "slug": "nha-trang", "country": "VN", "vn_name": "Nha Trang"},
-    {"name": "Sapa",      "slug": "sapa",      "country": "VN", "vn_name": "Sapa"},
-    {"name": "Bangkok",   "slug": "bangkok",   "country": "TH", "vn_name": "Bangkok"},
-    {"name": "Tokyo",     "slug": "tokyo",     "country": "JP", "vn_name": "Tokyo"},
-    {"name": "Singapore", "slug": "singapore", "country": "SG", "vn_name": "Singapore"},
+    {"name": "Da Lat", "slug": "da-lat", "country": "VN", "vn_name": "Đà Lạt"},
+    {"name": "Hue", "slug": "hue", "country": "VN", "vn_name": "Huế"},
+    {"name": "Ha Long", "slug": "ha-long", "country": "VN", "vn_name": "Hạ Long"},
+    {"name": "Sa Pa", "slug": "sapa", "country": "VN", "vn_name": "Sapa"},
 ]
 
-# Loại địa điểm muốn lấy (phân cấp OpenTripMap)
-ATTRACTION_KINDS = "interesting_places,cultural,historic,natural,beaches,amusements"
-HOTEL_KINDS      = "accomodations"   # lưu ý: OpenTripMap viết sai chính tả
+ATTRACTION_KINDS = "interesting_places,cultural,historic,natural,beaches,amusements,foods"
+HOTEL_KINDS = "accomodations"  # OpenTripMap spelling
 
 
 class OpenTripMapCollector:
-
     def __init__(self):
         self.key = os.getenv("OPENTRIPMAP_KEY")
+        self.lang = os.getenv("OPENTRIPMAP_LANG", "vi")
         if not self.key:
-            raise ValueError(
-                "Thiếu OPENTRIPMAP_KEY trong .env\n"
-                "Đăng ký miễn phí: https://dev.opentripmap.org/product"
-            )
+            raise ValueError("Missing OPENTRIPMAP_KEY. Register at https://dev.opentripmap.org/product")
 
-    def _p(self, extra: dict = None) -> dict:
-        """Thêm apikey vào params."""
+    @property
+    def places_base(self) -> str:
+        return f"{BASE}/{self.lang}/places"
+
+    def _params(self, extra: dict | None = None) -> dict:
         params = {"apikey": self.key}
         if extra:
             params.update(extra)
         return params
 
-    # ── 1. Lấy tọa độ thành phố ────────────────────────────────
     def geoname(self, city_name: str, country: str) -> dict | None:
-        """
-        GET /geoname?name=Da+Nang&country=VN
-        Trả về: {name, country, lat, lon, population, ...}
-        """
-        r = safe_get(f"{BASE}/geoname",
-                     params=self._p({"name": city_name, "country": country}))
+        r = safe_get(
+            f"{self.places_base}/geoname",
+            params=self._params({"name": city_name, "country": country}),
+        )
         if not r:
             return None
-        data = r.json()
-        log.info(f"[OpenTripMap] geoname {city_name}: lat={data.get('lat')}, lon={data.get('lon')}")
-        return data
+        return r.json()
 
-    # ── 2. Tìm POI theo bán kính ────────────────────────────────
-    def radius_search(self, lat: float, lon: float, kinds: str,
-                      radius: int = 15000, limit: int = 50) -> list[dict]:
-        """
-        GET /radius?lat=...&lon=...&radius=15000&kinds=interesting_places
-        Trả về list: [{xid, name, dist, kinds, point: {lat, lon}}, ...]
-        """
-        r = safe_get(f"{BASE}/radius", params=self._p({
-            "lat": lat, "lon": lon,
-            "radius": radius,
-            "kinds": kinds,
-            "limit": limit,
-            "format": "json",
-        }))
+    def radius_search(self, lat: float, lon: float, kinds: str, radius: int, limit: int) -> list[dict]:
+        r = safe_get(
+            f"{self.places_base}/radius",
+            params=self._params(
+                {
+                    "lat": lat,
+                    "lon": lon,
+                    "radius": radius,
+                    "kinds": kinds,
+                    "limit": limit,
+                    "format": "json",
+                    "rate": 2,
+                }
+            ),
+        )
         if not r:
             return []
-        results = r.json()
-        log.info(f"[OpenTripMap] radius({lat},{lon}) → {len(results)} POIs")
-        return results if isinstance(results, list) else []
+        data = r.json()
+        return data if isinstance(data, list) else []
 
-    # ── 3. Chi tiết từng POI ────────────────────────────────────
     def place_detail(self, xid: str) -> dict | None:
-        """
-        GET /xid/{xid}
-        Trả về thông tin chi tiết: name, address, wikipedia_extracts,
-        image, rate (rating), kinds, point
-        """
-        r = safe_get(f"{BASE}/xid/{xid}", params=self._p())
+        r = safe_get(f"{self.places_base}/xid/{xid}", params=self._params())
         if not r:
             return None
-        data = r.json()
-        time.sleep(0.3)  # tránh rate limit 500 req/ngày
-        return data
+        time.sleep(0.25)
+        return r.json()
 
-    # ── 4. Parse POI → row cho DB ───────────────────────────────
-    def _parse_attraction(self, detail: dict, city_info: dict, dest_id: str) -> dict | None:
-        """Chuyển raw JSON → dict chuẩn cho bảng destinations."""
-        name = detail.get("name", "").strip()
-        if not name or len(name) < 3:
+    def category_from_kinds(self, kinds: str) -> str:
+        mapping = [
+            ("beaches", "beach"),
+            ("foods", "food"),
+            ("historic", "historic"),
+            ("cultural", "culture"),
+            ("natural", "nature"),
+            ("amusements", "amusement"),
+            ("religion", "religion"),
+            ("museums", "museum"),
+        ]
+        for needle, category in mapping:
+            if needle in kinds:
+                return category
+        return "attraction"
+
+    def parse_address(self, detail: dict) -> str:
+        address = detail.get("address", {})
+        if not isinstance(address, dict):
+            return ""
+        parts = [
+            address.get("road"),
+            address.get("suburb"),
+            address.get("city"),
+            address.get("state"),
+            address.get("country"),
+        ]
+        return ", ".join(p for p in parts if p)
+
+    def parse_poi(self, detail: dict, destination_id: str, city_slug: str) -> dict | None:
+        name = (detail.get("name") or "").strip()
+        if len(name) < 3:
             return None
 
-        point   = detail.get("point", {})
-        address = detail.get("address", {})
-        wiki    = detail.get("wikipedia_extracts", {})
-        kinds   = detail.get("kinds", "")
-
-        # Ánh xạ kinds → tags
-        tag_map = {
-            "beaches":      "biển",
-            "historic":     "lịch sử",
-            "cultural":     "văn hóa",
-            "natural":      "thiên nhiên",
-            "museums":      "bảo tàng",
-            "amusements":   "giải trí",
-            "architecture": "kiến trúc",
-            "religion":     "tâm linh",
-        }
-        tags = [v for k, v in tag_map.items() if k in kinds]
+        point = detail.get("point", {})
+        kinds_str = detail.get("kinds", "")
+        wiki = detail.get("wikipedia_extracts") or {}
+        description = wiki.get("text") or detail.get("info", {}).get("descr", "")
 
         return {
-            "name":         name,
-            "slug":         slugify(name) + f"-{city_info['slug']}",
-            "city":         city_info["vn_name"],
-            "country":      city_info.get("country_name", "Vietnam"),
-            "description":  wiki.get("text", "")[:800],
-            "lat":          point.get("lat"),
-            "lng":          point.get("lon"),
-            "images":       json.dumps([detail["image"]] if detail.get("image") else []),
-            "tags":         json.dumps(tags),
-            "best_months":  json.dumps([]),
-            "avg_rating":   min(5.0, float(detail.get("rate", 0)) / 2),  # rate 0-10 → 0-5
-            "review_count": detail.get("wikidata", 0),
+            "destination_id": destination_id,
+            "name": name,
+            "slug": f"{slugify(name)}-{city_slug}",
+            "category": self.category_from_kinds(kinds_str),
+            "kinds": [k for k in kinds_str.split(",") if k],
+            "description": description[:1200],
+            "lat": point.get("lat"),
+            "lng": point.get("lon"),
+            "address": self.parse_address(detail),
+            "estimated_duration_min": 90,
+            "avg_rating": min(5.0, float(detail.get("rate", 0) or 0) / 2),
+            "source": "opentripmap",
+            "source_ref": detail.get("xid"),
+            "wikidata_id": detail.get("wikidata"),
+            "wikipedia_url": detail.get("wikipedia"),
+            "raw": detail,
         }
 
-    def _parse_hotel(self, detail: dict, dest_id: str) -> dict | None:
-        """Chuyển raw JSON → dict chuẩn cho bảng hotels."""
-        name = detail.get("name", "").strip()
-        if not name or len(name) < 3:
+    def parse_hotel(self, detail: dict, destination_id: str) -> dict | None:
+        name = (detail.get("name") or "").strip()
+        if len(name) < 3:
             return None
 
-        point   = detail.get("point", {})
-        address = detail.get("address", {})
-        props   = detail.get("properties", {})
-
-        # Đoán số sao từ tags/name
-        stars = 3
+        point = detail.get("point", {})
         name_lower = name.lower()
-        if any(w in name_lower for w in ["5 star","five star","luxury","palace","grand"]):
-            stars = 5
-        elif any(w in name_lower for w in ["4 star","resort","boutique"]):
+        stars = 3
+        if any(word in name_lower for word in ["palace", "luxury", "grand", "resort"]):
             stars = 4
-        elif any(w in name_lower for w in ["hostel","backpacker","budget"]):
+        if "5 star" in name_lower:
+            stars = 5
+        if any(word in name_lower for word in ["hostel", "homestay"]):
             stars = 2
 
         return {
-            "destination_id":  dest_id,
-            "name":            name,
-            "stars":           stars,
-            "price_per_night": 0,          # OpenTripMap không có giá → Amadeus bổ sung
-            "address":         ", ".join(filter(None, [
-                                    address.get("road",""),
-                                    address.get("suburb",""),
-                                    address.get("city",""),
-                                ])),
-            "lat":             point.get("lat"),
-            "lng":             point.get("lon"),
-            "amenities":       json.dumps(["wifi"]),
-            "images":          json.dumps([detail["image"]] if detail.get("image") else []),
-            "avg_rating":      0,
+            "destination_id": destination_id,
+            "name": name,
+            "slug": slugify(name),
+            "stars": stars,
+            "property_type": "hotel",
+            "description": (detail.get("wikipedia_extracts") or {}).get("text", "")[:1000],
+            "address": self.parse_address(detail),
+            "lat": point.get("lat"),
+            "lng": point.get("lon"),
+            "amenities": ["wifi"],
+            "provider": "opentripmap",
+            "provider_property_id": detail.get("xid"),
+            "source": "opentripmap",
         }
 
-    # ── 5. Chạy toàn bộ pipeline cho 1 thành phố ──────────────
+    def ensure_destination(self, conn, city: dict, geo: dict) -> str:
+        existing = get_dest_id(conn, city["slug"])
+        if existing:
+            return existing
+
+        return upsert_destination(
+            conn,
+            {
+                "name": city["vn_name"],
+                "slug": city["slug"],
+                "city": city["vn_name"],
+                "country_code": city["country"],
+                "country_name": "Vietnam" if city["country"] == "VN" else geo.get("country", ""),
+                "lat": geo.get("lat"),
+                "lng": geo.get("lon"),
+                "tags": [],
+                "best_months": [],
+                "is_seeded": False,
+                "source": "opentripmap",
+            },
+        )
+
     def collect_city(self, conn, city: dict):
-        log.info(f"\n{'='*50}")
-        log.info(f"[OpenTripMap] Bắt đầu thu thập: {city['vn_name']}")
-
-        # 1. Tọa độ
+        log.info("OpenTripMap city: %s", city["vn_name"])
         geo = self.geoname(city["name"], city["country"])
-        if not geo or not geo.get("lat"):
-            log.error(f"Không lấy được tọa độ {city['name']}")
-            return
-        lat, lon = float(geo["lat"]), float(geo["lon"])
-        city["country_name"] = geo.get("country", "Vietnam")
+        if not geo or not geo.get("lat") or not geo.get("lon"):
+            log.warning("OpenTripMap geoname failed: %s", city["name"])
+            return {"pois": 0, "hotels": 0}
 
-        # 2. Upsert destination chính
-        dest_row = {
-            "name":         city["vn_name"],
-            "slug":         city["slug"],
-            "city":         city["vn_name"],
-            "country":      city["country_name"],
-            "description":  "",
-            "lat":          lat,
-            "lng":          lon,
-            "images":       "[]",
-            "tags":         "[]",
-            "best_months":  "[]",
-            "avg_rating":   0,
-            "review_count": 0,
-        }
-        dest_id = upsert_destination(conn, dest_row)
-        log.info(f"  → Destination ID: {dest_id}")
+        lat = float(geo["lat"])
+        lon = float(geo["lon"])
+        destination_id = self.ensure_destination(conn, city, geo)
 
-        # 3. Lấy danh sách điểm tham quan
-        log.info(f"  → Tìm điểm tham quan (r=15km)...")
-        attractions = self.radius_search(lat, lon, ATTRACTION_KINDS, radius=15000, limit=30)
-        saved_attr = 0
-        for poi in attractions[:20]:   # giới hạn 20 để tiết kiệm quota
-            xid = poi.get("xid")
+        pois_raw = self.radius_search(lat, lon, ATTRACTION_KINDS, radius=15000, limit=35)
+        saved_pois = 0
+        for item in pois_raw[:25]:
+            xid = item.get("xid")
             if not xid:
                 continue
             detail = self.place_detail(xid)
             if not detail:
                 continue
-            parsed = self._parse_attraction(detail, city, dest_id)
-            if parsed:
-                try:
-                    upsert_destination(conn, parsed)
-                    saved_attr += 1
-                except Exception as e:
-                    log.debug(f"Skip attraction {xid}: {e}")
-        log.info(f"  → Đã lưu {saved_attr} điểm tham quan")
+            parsed = self.parse_poi(detail, destination_id, city["slug"])
+            if not parsed:
+                continue
+            poi_id = upsert_poi(conn, parsed)
+            if detail.get("image"):
+                upsert_poi_image(
+                    conn,
+                    {
+                        "poi_id": poi_id,
+                        "url": detail["image"],
+                        "provider": "opentripmap",
+                        "provider_ref": xid,
+                    },
+                )
+            saved_pois += 1
 
-        # 4. Lấy danh sách khách sạn
-        log.info(f"  → Tìm khách sạn (r=10km)...")
-        hotels_raw = self.radius_search(lat, lon, HOTEL_KINDS, radius=10000, limit=20)
+        hotels_raw = self.radius_search(lat, lon, HOTEL_KINDS, radius=10000, limit=12)
         saved_hotels = 0
-        for poi in hotels_raw[:15]:
-            xid = poi.get("xid")
+        for item in hotels_raw[:8]:
+            xid = item.get("xid")
             if not xid:
                 continue
             detail = self.place_detail(xid)
             if not detail:
                 continue
-            parsed = self._parse_hotel(detail, dest_id)
-            if parsed:
-                try:
-                    upsert_hotel(conn, parsed)
-                    saved_hotels += 1
-                except Exception as e:
-                    log.debug(f"Skip hotel {xid}: {e}")
-        log.info(f"  → Đã lưu {saved_hotels} khách sạn")
+            parsed_hotel = self.parse_hotel(detail, destination_id)
+            if not parsed_hotel:
+                continue
+            upsert_hotel(conn, parsed_hotel)
+            saved_hotels += 1
 
-        time.sleep(1)  # nghỉ giữa các thành phố
+        log.info("OpenTripMap %s: %s POIs, %s hotels", city["slug"], saved_pois, saved_hotels)
+        time.sleep(0.8)
+        return {"pois": saved_pois, "hotels": saved_hotels}
 
     def run(self, conn):
-        log.info("🗺  OpenTripMap Collector bắt đầu")
+        log.info("OpenTripMap collector started")
+        total_pois = 0
+        total_hotels = 0
         for city in CITIES:
-            self.collect_city(conn, city)
-        log.info("✅ OpenTripMap Collector hoàn thành")
+            result = self.collect_city(conn, city)
+            total_pois += result["pois"]
+            total_hotels += result["hotels"]
+        log.info("OpenTripMap collector finished: %s POIs, %s hotels", total_pois, total_hotels)

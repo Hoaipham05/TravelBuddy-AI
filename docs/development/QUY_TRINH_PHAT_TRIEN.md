@@ -1285,7 +1285,7 @@ Dựa trên phản hồi, sắp xếp vào backlog:
 | Tài liệu | Nội dung | File |
 |---------|---------|------|
 | **README.md** | Hướng dẫn cài đặt, chạy local, cấu trúc project | `README.md` |
-| **ARCHITECTURE.md** | Kiến trúc hệ thống chi tiết, sơ đồ, data flow | `docs/ARCHITECTURE.md` |
+| **ARCHITECTURE.md** | Kiến trúc hệ thống chi tiết, sơ đồ, data flow | `docs/architecture/ARCHITECTURE.md` |
 | **API Documentation** | Tự động generate từ FastAPI OpenAPI | `http://localhost:8000/docs` |
 | **Database Schema** | ERD + mô tả từng bảng | `database/travel_buddy_db/README.md` |
 | **Environment Setup** | Hướng dẫn cài đặt môi trường dev | `docs/DEV_SETUP.md` |

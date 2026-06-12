@@ -1,148 +1,229 @@
 """
 collectors/countries.py
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-API:     RestCountries  (https://restcountries.com)
-Data:    Thông tin quốc gia: tiền tệ, ngôn ngữ, múi giờ,
-         flag, thị thực (visa) cho người Việt
-Key:     KHÔNG CẦN — hoàn toàn miễn phí
-Docs:    https://restcountries.com/#api-endpoints-v3
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Country metadata collector.
 
-Dùng để:
-  - Hiển thị thông tin visa, tiền tệ trong Trip Builder
-  - Cảnh báo "người Việt cần visa không?"
-  - Thông tin múi giờ khi lên lịch trình
+Important:
+  REST Countries v3.1/v4 legacy endpoints are no longer reliable. The current
+  v5 API requires a free API key. If RESTCOUNTRIES_API_KEY is missing, this
+  collector seeds a small manual fallback set so the app still works in MVP.
+
+Visa notes are stored separately as deterministic/manual rules. RestCountries
+is not a visa authority.
 """
 
-import json, logging
+from __future__ import annotations
+
+import logging
+import os
+from datetime import date
+from typing import Any
+
 from utils.helpers import safe_get
+from db.connection import upsert_country, upsert_visa_rule
 
 log = logging.getLogger(__name__)
 
-BASE = "https://restcountries.com/v3.1"
+BASE = "https://api.restcountries.com/countries/v5"
 
-# Quốc gia cần lấy thông tin (ISO 3166-1 alpha-2)
-COUNTRIES = {
-    "VN": {"name": "Vietnam",   "vn": "Việt Nam",   "visa_free": True},
-    "TH": {"name": "Thailand",  "vn": "Thái Lan",   "visa_free": True},   # VN miễn thị thực 30 ngày
-    "JP": {"name": "Japan",     "vn": "Nhật Bản",   "visa_free": False},  # cần visa
-    "SG": {"name": "Singapore", "vn": "Singapore",  "visa_free": True},   # miễn thị thực 30 ngày
-    "KR": {"name": "South Korea","vn":"Hàn Quốc",   "visa_free": False},
-    "FR": {"name": "France",    "vn": "Pháp",       "visa_free": False},
-    "US": {"name": "United States","vn":"Mỹ",       "visa_free": False},
+COUNTRY_META = {
+    "VN": {"name_vn": "Việt Nam", "visa_required": False, "visa_type": "domestic", "max_stay_days": None},
+    "TH": {"name_vn": "Thái Lan", "visa_required": False, "visa_type": "visa_free", "max_stay_days": 30},
+    "JP": {"name_vn": "Nhật Bản", "visa_required": True, "visa_type": "sticker_or_evisa", "max_stay_days": None},
+    "SG": {"name_vn": "Singapore", "visa_required": False, "visa_type": "visa_free", "max_stay_days": 30},
+    "KR": {"name_vn": "Hàn Quốc", "visa_required": True, "visa_type": "sticker_or_evisa", "max_stay_days": None},
+    "CN": {"name_vn": "Trung Quốc", "visa_required": True, "visa_type": "sticker", "max_stay_days": None},
+    "FR": {"name_vn": "Pháp", "visa_required": True, "visa_type": "schengen", "max_stay_days": None},
+    "US": {"name_vn": "Mỹ", "visa_required": True, "visa_type": "sticker", "max_stay_days": None},
+    "AU": {"name_vn": "Úc", "visa_required": True, "visa_type": "visitor", "max_stay_days": None},
+    "GB": {"name_vn": "Vương quốc Anh", "visa_required": True, "visa_type": "visitor_visa", "max_stay_days": None},
+}
+
+FALLBACK_COUNTRIES = {
+    "VN": {
+        "alpha3": "VNM", "name_en": "Vietnam", "capital": "Hanoi", "region": "Asia",
+        "subregion": "South-Eastern Asia", "currencies": [{"code": "VND", "name": "Vietnamese đồng", "symbol": "₫"}],
+        "languages": ["Vietnamese"], "timezones": ["UTC+07:00"], "calling_code": "+84",
+    },
+    "TH": {
+        "alpha3": "THA", "name_en": "Thailand", "capital": "Bangkok", "region": "Asia",
+        "subregion": "South-Eastern Asia", "currencies": [{"code": "THB", "name": "Thai baht", "symbol": "฿"}],
+        "languages": ["Thai"], "timezones": ["UTC+07:00"], "calling_code": "+66",
+    },
+    "JP": {
+        "alpha3": "JPN", "name_en": "Japan", "capital": "Tokyo", "region": "Asia",
+        "subregion": "Eastern Asia", "currencies": [{"code": "JPY", "name": "Japanese yen", "symbol": "¥"}],
+        "languages": ["Japanese"], "timezones": ["UTC+09:00"], "calling_code": "+81",
+    },
+    "SG": {
+        "alpha3": "SGP", "name_en": "Singapore", "capital": "Singapore", "region": "Asia",
+        "subregion": "South-Eastern Asia", "currencies": [{"code": "SGD", "name": "Singapore dollar", "symbol": "$"}],
+        "languages": ["English", "Malay", "Tamil", "Chinese"], "timezones": ["UTC+08:00"], "calling_code": "+65",
+    },
+    "KR": {
+        "alpha3": "KOR", "name_en": "South Korea", "capital": "Seoul", "region": "Asia",
+        "subregion": "Eastern Asia", "currencies": [{"code": "KRW", "name": "South Korean won", "symbol": "₩"}],
+        "languages": ["Korean"], "timezones": ["UTC+09:00"], "calling_code": "+82",
+    },
+    "CN": {
+        "alpha3": "CHN", "name_en": "China", "capital": "Beijing", "region": "Asia",
+        "subregion": "Eastern Asia", "currencies": [{"code": "CNY", "name": "Chinese yuan", "symbol": "¥"}],
+        "languages": ["Chinese"], "timezones": ["UTC+08:00"], "calling_code": "+86",
+    },
+    "FR": {
+        "alpha3": "FRA", "name_en": "France", "capital": "Paris", "region": "Europe",
+        "subregion": "Western Europe", "currencies": [{"code": "EUR", "name": "Euro", "symbol": "€"}],
+        "languages": ["French"], "timezones": ["UTC+01:00"], "calling_code": "+33",
+    },
+    "US": {
+        "alpha3": "USA", "name_en": "United States", "capital": "Washington, D.C.", "region": "Americas",
+        "subregion": "North America", "currencies": [{"code": "USD", "name": "United States dollar", "symbol": "$"}],
+        "languages": ["English"], "timezones": ["UTC-05:00"], "calling_code": "+1",
+    },
+    "AU": {
+        "alpha3": "AUS", "name_en": "Australia", "capital": "Canberra", "region": "Oceania",
+        "subregion": "Australia and New Zealand", "currencies": [{"code": "AUD", "name": "Australian dollar", "symbol": "$"}],
+        "languages": ["English"], "timezones": ["UTC+10:00"], "calling_code": "+61",
+    },
+    "GB": {
+        "alpha3": "GBR", "name_en": "United Kingdom", "capital": "London", "region": "Europe",
+        "subregion": "Northern Europe", "currencies": [{"code": "GBP", "name": "British pound", "symbol": "£"}],
+        "languages": ["English"], "timezones": ["UTC+00:00"], "calling_code": "+44",
+    },
 }
 
 
+def _dig(obj: dict, *keys: str, default=None):
+    cur: Any = obj
+    for key in keys:
+        if not isinstance(cur, dict) or key not in cur:
+            return default
+        cur = cur[key]
+    return cur
+
+
 class CountriesCollector:
+    def __init__(self):
+        self.api_key = os.getenv("RESTCOUNTRIES_API_KEY", "")
 
     def fetch_country(self, code: str) -> dict | None:
-        """
-        GET /v3.1/alpha/{code}
-        Trả về thông tin đầy đủ của 1 quốc gia.
-        """
-        r = safe_get(f"{BASE}/alpha/{code}")
+        if not self.api_key:
+            return None
+
+        r = safe_get(
+            f"{BASE}/code",
+            params={"q": code},
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
         if not r:
             return None
-        data = r.json()
-        return data[0] if isinstance(data, list) and data else data
+        return r.json()
 
-    def parse_country(self, raw: dict, code: str) -> dict:
-        """Rút gọn thông tin cần thiết cho Travel Buddy."""
-        meta = COUNTRIES.get(code, {})
+    def _first_object(self, raw: dict) -> dict:
+        data = raw.get("data", raw)
+        if isinstance(data, dict):
+            objects = data.get("objects")
+            if isinstance(objects, list) and objects:
+                return objects[0]
+        if isinstance(raw, list) and raw:
+            return raw[0]
+        return data if isinstance(data, dict) else {}
 
-        # Tiền tệ
-        currencies = raw.get("currencies", {})
-        currency_list = [
-            {"code": k, "name": v.get("name",""), "symbol": v.get("symbol","")}
-            for k, v in currencies.items()
-        ]
+    def parse_country(self, code: str, raw: dict) -> dict:
+        obj = self._first_object(raw)
+        meta = COUNTRY_META.get(code, {})
 
-        # Ngôn ngữ
-        languages = list(raw.get("languages", {}).values())
+        names = obj.get("names", obj.get("name", {}))
+        codes = obj.get("codes", {})
+        currencies_obj = obj.get("currencies", {})
+        languages_obj = obj.get("languages", {})
+        flag = obj.get("flag", obj.get("flags", {}))
 
-        # Múi giờ
-        timezones = raw.get("timezones", [])
+        currencies = []
+        if isinstance(currencies_obj, dict):
+            for curr_code, value in currencies_obj.items():
+                if isinstance(value, dict):
+                    currencies.append({
+                        "code": curr_code,
+                        "name": value.get("name", ""),
+                        "symbol": value.get("symbol", ""),
+                    })
+                else:
+                    currencies.append({"code": curr_code, "name": str(value), "symbol": ""})
 
-        # Flag
-        flags = raw.get("flags", {})
+        languages = list(languages_obj.values()) if isinstance(languages_obj, dict) else languages_obj or []
+
+        calling_code = ""
+        idd = obj.get("idd", {})
+        if isinstance(idd, dict):
+            suffixes = idd.get("suffixes") or [""]
+            calling_code = f"{idd.get('root', '')}{suffixes[0] or ''}"
 
         return {
-            "code":       code,
-            "name_en":    raw.get("name", {}).get("common", ""),
-            "name_vn":    meta.get("vn", ""),
-            "capital":    raw.get("capital", [""])[0] if raw.get("capital") else "",
-            "region":     raw.get("region", ""),
-            "population": raw.get("population", 0),
-            "area_km2":   raw.get("area", 0),
-            "currencies": currency_list,
-            "languages":  languages,
-            "timezones":  timezones,
-            "flag_url":   flags.get("png", ""),
-            "flag_svg":   flags.get("svg", ""),
-            "visa_free_for_vn": meta.get("visa_free", False),
-            "calling_code": (raw.get("idd", {}).get("root","") +
-                             (raw.get("idd",{}).get("suffixes",[""])[0] or "")),
-            "source": "RestCountries API v3.1 (restcountries.com)",
+            "code": code,
+            "alpha3": codes.get("alpha_3") or codes.get("cca3") or obj.get("cca3"),
+            "name_en": _dig(names, "common") or obj.get("names.common") or obj.get("name_en") or code,
+            "name_vn": meta.get("name_vn"),
+            "capital": (obj.get("capital") or [""])[0] if isinstance(obj.get("capital"), list) else obj.get("capital"),
+            "region": obj.get("region"),
+            "subregion": obj.get("subregion"),
+            "population": obj.get("population"),
+            "area_km2": obj.get("area") or obj.get("area_km2"),
+            "currencies": currencies,
+            "languages": languages,
+            "timezones": obj.get("timezones", []),
+            "flag_url": flag.get("png") if isinstance(flag, dict) else None,
+            "flag_svg": flag.get("svg") if isinstance(flag, dict) else None,
+            "calling_code": calling_code,
+            "source": "restcountries_v5",
+            "raw": raw,
         }
 
-    def save_to_db(self, conn, country: dict):
-        """Lưu vào bảng countries."""
-        cur = conn.cursor()
+    def fallback_country(self, code: str) -> dict:
+        base = FALLBACK_COUNTRIES[code]
+        meta = COUNTRY_META.get(code, {})
+        return {
+            "code": code,
+            "name_vn": meta.get("name_vn"),
+            "source": "manual_seed_fallback",
+            "raw": {},
+            **base,
+        }
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS countries (
-                code          CHAR(2) PRIMARY KEY,
-                name_en       VARCHAR(100),
-                name_vn       VARCHAR(100),
-                capital       VARCHAR(100),
-                region        VARCHAR(50),
-                population    BIGINT,
-                area_km2      NUMERIC(12,2),
-                currencies    JSONB DEFAULT '[]',
-                languages     JSONB DEFAULT '[]',
-                timezones     JSONB DEFAULT '[]',
-                flag_url      TEXT,
-                flag_svg      TEXT,
-                visa_free_for_vn BOOLEAN DEFAULT FALSE,
-                calling_code  VARCHAR(10),
-                updated_at    TIMESTAMPTZ DEFAULT NOW()
-            )
-        """)
-
-        cur.execute("""
-            INSERT INTO countries
-                (code, name_en, name_vn, capital, region, population,
-                 area_km2, currencies, languages, timezones,
-                 flag_url, flag_svg, visa_free_for_vn, calling_code)
-            VALUES
-                (%(code)s, %(name_en)s, %(name_vn)s, %(capital)s, %(region)s,
-                 %(population)s, %(area_km2)s,
-                 %(currencies)s::jsonb, %(languages)s::jsonb, %(timezones)s::jsonb,
-                 %(flag_url)s, %(flag_svg)s, %(visa_free_for_vn)s, %(calling_code)s)
-            ON CONFLICT (code) DO UPDATE SET
-                name_vn          = EXCLUDED.name_vn,
-                visa_free_for_vn = EXCLUDED.visa_free_for_vn,
-                updated_at       = NOW()
-        """, {**country,
-              "currencies": json.dumps(country["currencies"], ensure_ascii=False),
-              "languages":  json.dumps(country["languages"],  ensure_ascii=False),
-              "timezones":  json.dumps(country["timezones"],  ensure_ascii=False),
-        })
-        conn.commit()
-        log.info(f"  💾 Country: {country['name_en']} ({country['code']}) "
-                 f"— visa_free={country['visa_free_for_vn']}, "
-                 f"currency={[c['code'] for c in country['currencies']]}")
+    def save_visa_rule(self, conn, code: str):
+        meta = COUNTRY_META[code]
+        upsert_visa_rule(
+            conn,
+            {
+                "passport_country_code": "VN",
+                "destination_country_code": code,
+                "visa_required": meta["visa_required"],
+                "visa_type": meta["visa_type"],
+                "max_stay_days": meta["max_stay_days"],
+                "note": (
+                    "Quy tắc visa được seed thủ công cho MVP. "
+                    "Production cần xác minh lại từ nguồn lãnh sự/chính phủ chính thức."
+                ),
+                "verified_at": date.today(),
+            },
+        )
 
     def run(self, conn):
-        log.info("🌍  RestCountries Collector bắt đầu")
+        log.info("Countries collector started")
+        if not self.api_key:
+            log.warning("RESTCOUNTRIES_API_KEY missing; using manual fallback country metadata")
+
         saved = 0
-        for code in COUNTRIES:
-            raw = self.fetch_country(code)
-            if not raw:
-                log.warning(f"  Không lấy được: {code}")
-                continue
-            parsed = self.parse_country(raw, code)
-            self.save_to_db(conn, parsed)
+        for code in COUNTRY_META:
+            country = None
+            if self.api_key:
+                raw = self.fetch_country(code)
+                if raw:
+                    country = self.parse_country(code, raw)
+            if country is None:
+                country = self.fallback_country(code)
+
+            upsert_country(conn, country)
+            self.save_visa_rule(conn, code)
             saved += 1
 
-        log.info(f"✅ RestCountries: đã lưu {saved} quốc gia")
+        log.info("Countries collector finished: %s countries", saved)
