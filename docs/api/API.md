@@ -5,6 +5,8 @@ Main FastAPI app: `backend/src/api/server.py`.
 Key endpoints:
 
 - `GET /health`
+- `POST /auth/login`
+- `GET /auth/me`
 - `POST /chat`
 - `GET /chat/{job_id}`
 - `GET /session/{session_id}/stream`
