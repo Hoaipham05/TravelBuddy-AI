@@ -1,0 +1,6 @@
+# Local dev override — expose the TravelBuddy FastAPI on a free host port
+# so the Vite dev server can reach it. Safe to delete anytime.
+services:
+  api:
+    ports:
+      - "127.0.0.1:8001:8000"
