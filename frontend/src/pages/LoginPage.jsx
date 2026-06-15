@@ -231,6 +231,11 @@ body {
   background: rgba(253,230,138,0.35);
   border-radius: 2px;
 }
+.lp-h1 .brand {
+  background: linear-gradient(96deg, #FDE68A 0%, #FCD34D 35%, #67E8F9 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
 
 .lp-sub {
   font-size: 1.0625rem;
@@ -245,19 +250,19 @@ body {
   gap: 0.875rem; margin-bottom: 2.5rem;
 }
 .lp-feat {
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.22);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.32);
   border-radius: 14px;
   padding: 1rem 1.0625rem;
   display: flex; align-items: flex-start; gap: 0.75rem;
   transition: transform 0.25s, background 0.25s;
   cursor: default;
 }
-.lp-feat:hover { transform: translateY(-3px); background: rgba(255,255,255,0.17); }
+.lp-feat:hover { transform: translateY(-3px); background: rgba(255,255,255,0.3); }
 .lp-feat-icon {
   width: 38px; height: 38px; flex-shrink: 0;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.32);
   border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.25rem;
@@ -267,7 +272,7 @@ body {
   font-size: 0.875rem; font-weight: 800; color: #fff;
   margin-bottom: 0.2rem;
 }
-.lp-feat-info p { font-size: 0.75rem; color: rgba(255,255,255,0.65); line-height: 1.45; }
+.lp-feat-info p { font-size: 0.75rem; color: rgba(255,255,255,0.82); line-height: 1.45; }
 
 /* destination chips */
 .lp-dest-label {
@@ -700,7 +705,7 @@ export default function LoginPage() {
 
               <h1 className="lp-h1">
                 Khám phá <span className="hi">Việt Nam</span><br />
-                cùng Trợ lý AI
+                cùng <span className="brand">TravelBuddy</span>
               </h1>
 
               <p className="lp-sub">

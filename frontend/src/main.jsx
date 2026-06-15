@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import TripPlannerPage from "./pages/TripPlannerPage";
+import MyTripsPage from "./pages/MyTripsPage";
+import FlightsPage from "./pages/FlightsPage";
 
 function getToken() {
   return localStorage.getItem("tb_token") || sessionStorage.getItem("tb_token");
@@ -20,6 +22,8 @@ createRoot(document.getElementById("root")).render(
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Protected><HomePage /></Protected>} />
         <Route path="/plan" element={<Protected><TripPlannerPage /></Protected>} />
+        <Route path="/my-trips" element={<Protected><MyTripsPage /></Protected>} />
+        <Route path="/flights" element={<Protected><FlightsPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

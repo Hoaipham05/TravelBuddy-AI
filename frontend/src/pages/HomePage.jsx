@@ -235,13 +235,9 @@ body {
 .hp-exp {
   background: #fff; border-radius: 18px; overflow: hidden;
   box-shadow: 0 6px 20px rgba(15,23,42,0.07); border: 1px solid rgba(226,232,240,0.7);
-  cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
 }
-.hp-exp:hover { transform: translateY(-5px); box-shadow: 0 18px 40px rgba(15,23,42,0.13); }
 .hp-exp-img { height: 170px; position: relative; overflow: hidden; background: linear-gradient(135deg, var(--sky), var(--deep)); }
-.hp-exp-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
-.hp-exp:hover .hp-exp-img img { transform: scale(1.07); }
-.hp-exp-emoji { position: absolute; top: 0.875rem; left: 0.875rem; width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.hp-exp-img img { width: 100%; height: 100%; object-fit: cover; }
 .hp-exp-body { padding: 1.125rem 1.25rem 1.375rem; }
 .hp-exp-body h4 { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1.0625rem; color: var(--text); margin-bottom: 0.375rem; }
 .hp-exp-body p { font-size: 0.875rem; color: var(--muted); line-height: 1.55; }
@@ -613,15 +609,14 @@ export default function HomePage() {
       <section className="hp-section" style={{ paddingTop: 0 }}>
         <div className="hp-sec-head">
           <div className="hp-sec-eyebrow">Trải nghiệm</div>
-          <h2 className="hp-sec-title">Hoạt động du lịch thú vị 🎒</h2>
+          <h2 className="hp-sec-title">Hoạt động du lịch thú vị</h2>
           <p className="hp-sec-sub">Chọn phong cách du lịch của bạn — biển, núi, hay ẩm thực đường phố.</p>
         </div>
         <div className="hp-exp-grid">
           {EXPERIENCES.map((x) => (
-            <div key={x.title} className="hp-exp" onClick={() => toast(`"${x.title}" đang được thiết kế ✨`)}>
+            <div key={x.title} className="hp-exp">
               <div className="hp-exp-img">
                 <img src={x.img} alt={x.title} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-                <div className="hp-exp-emoji">{x.emoji}</div>
               </div>
               <div className="hp-exp-body">
                 <h4>{x.title}</h4>

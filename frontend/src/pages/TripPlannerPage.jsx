@@ -247,6 +247,11 @@ body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color
   .tp-main { padding:0; max-width:100%; }
   body { background:#fff; }
   .tp-doc { box-shadow:none; border:none; }
+  /* khi in, nền gradient bị bỏ → cho tiêu đề màu xanh thương hiệu thay vì xám */
+  .tp-doc-head { background:#fff !important; padding-bottom:0.75rem; }
+  .tp-doc-head::before { display:none; }
+  .tp-doc-head h1 { color:#0284C7 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .tp-doc-head .sub { color:#475569 !important; }
 }
 `;
 
@@ -338,6 +343,7 @@ export default function TripPlannerPage() {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { return null; }
   }, []);
 
+  const [tripId, setTripId] = useState(() => draft?.tripId || Date.now());
   const [step, setStep] = useState(draft?.step || 1);
   const [destinations, setDestinations] = useState([]);
   const [form, setForm] = useState(draft?.form || {
@@ -371,8 +377,8 @@ export default function TripPlannerPage() {
 
   /* persist draft */
   useEffect(() => {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, form, itinerary, notes, packChecked, customPack }));
-  }, [step, form, itinerary, notes, packChecked, customPack]);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ tripId, step, form, itinerary, notes, packChecked, customPack }));
+  }, [tripId, step, form, itinerary, notes, packChecked, customPack]);
 
   const selectedDest = destinations.find((d) => d.slug === form.destSlug);
   const setF = (k, v) => setForm((p) => ({ ...p, [k]: v }));
@@ -538,13 +544,68 @@ export default function TripPlannerPage() {
   const goStep2 = () => { if (!canStep2) { showToast("Vui lòng điền điểm đến, điểm đi, số ngày, ngày bắt đầu"); return; } setStep(2); window.scrollTo(0, 0); };
   const go = (s) => { setStep(s); window.scrollTo(0, 0); };
 
-  const saveTrip = () => {
+  /* ─── lưu kế hoạch vào "Kế hoạch của tôi" (upsert theo tripId) ─── */
+  const persistTrip = (status) => {
     try {
       const saved = JSON.parse(localStorage.getItem("tb_saved_trips") || "[]");
-      saved.push({ id: Date.now(), form, itinerary, notes, savedAt: new Date().toISOString(), totalCost, totalPlaces });
+      const snapshot = {
+        id: tripId,
+        destName: form.destName,
+        originName: ORIGINS.find((o) => o.code === form.origin)?.nm || form.origin,
+        form, itinerary, notes, packChecked, customPack,
+        days: Number(form.days), travelers: Number(form.travelers),
+        startDate: form.startDate,
+        totalCost, totalPlaces,
+        savedAt: new Date().toISOString(),
+      };
+      const idx = saved.findIndex((t) => t.id === tripId);
+      if (idx >= 0) {
+        // trạng thái phản ánh đúng hành động gần nhất: Lưu → saved, In/PDF → exported
+        saved[idx] = { ...saved[idx], ...snapshot, status };
+      } else {
+        saved.push({ ...snapshot, status, createdAt: new Date().toISOString() });
+      }
       localStorage.setItem("tb_saved_trips", JSON.stringify(saved));
-      showToast("✅ Đã lưu kế hoạch vào thiết bị!");
-    } catch { showToast("Lưu thất bại"); }
+      return true;
+    } catch { return false; }
+  };
+
+  /* sau khi lưu xong: báo thành công + hỏi chia sẻ cộng đồng, rồi mới điều hướng về trang chủ */
+  const finishFlow = async () => {
+    const share = await confirmDialog(
+      "Kế hoạch đã được lưu vào “Kế hoạch của tôi”. Bạn có muốn chia sẻ lịch trình này lên cộng đồng Traveler không?",
+      { title: "🎉 Lưu thành công!", okText: "Chia sẻ ngay", cancelText: "Để sau" }
+    );
+    if (share) {
+      showToast("Tính năng chia sẻ lên cộng đồng Traveler đang được phát triển ✨");
+      setTimeout(() => navigate("/"), 1200);
+    } else {
+      navigate("/");
+    }
+  };
+
+  const saveTrip = () => {
+    if (!persistTrip("saved")) { showToast("Lưu thất bại"); return; }
+    localStorage.removeItem(DRAFT_KEY); // dọn nháp → lần sau bắt đầu kế hoạch mới, không đè bản đã lưu
+    finishFlow();
+  };
+
+  // Trình duyệt KHÔNG phân biệt được người dùng bấm "Lưu" hay "Huỷ" trong hộp thoại in
+  // (afterprint kích hoạt cho cả hai). Vì vậy hỏi xác nhận lại — chỉ lưu khi thực sự đã xuất PDF.
+  const exportTrip = () => {
+    const onAfter = async () => {
+      window.removeEventListener("afterprint", onAfter);
+      const done = await confirmDialog(
+        "Nếu bạn đã in hoặc lưu file PDF thành công, nhấn “Đã xuất xong” để đánh dấu “Đã xuất PDF” và lưu vào “Kế hoạch của tôi”.",
+        { title: "Bạn đã xuất PDF chưa?", okText: "Đã xuất xong", cancelText: "Chưa / Đã huỷ" }
+      );
+      if (!done) { showToast("Đã huỷ — kế hoạch chưa được lưu."); return; }
+      if (!persistTrip("exported")) { showToast("Lưu thất bại"); return; }
+      localStorage.removeItem(DRAFT_KEY);
+      finishFlow();
+    };
+    window.addEventListener("afterprint", onAfter);
+    window.print();
   };
 
   const resetTrip = async () => {
@@ -553,6 +614,7 @@ export default function TripPlannerPage() {
     });
     if (!ok) return;
     localStorage.removeItem(DRAFT_KEY);
+    setTripId(Date.now()); // kế hoạch mới = id mới → không đè bản đã lưu
     setForm({ destSlug: "", destName: "", origin: "HAN", days: 3, startDate: todayStr(), style: "beach", prefs: [], travelers: 2, budget: "" });
     setItinerary({}); setNotes({}); setPacking([]); setPackChecked({}); setCustomPack([]); setPois([]); setStep(1); window.scrollTo(0, 0);
   };
@@ -655,7 +717,7 @@ export default function TripPlannerPage() {
                 <div className="tp-styles">
                   {STYLES.map((s) => (
                     <div key={s.key} className={"tp-style" + (form.style === s.key ? " on" : "")} onClick={() => setF("style", s.key)}>
-                      <div className="ic">{s.ic}</div><div className="nm">{s.nm}</div>
+                      <div className="nm">{s.nm}</div>
                     </div>
                   ))}
                 </div>
@@ -667,7 +729,7 @@ export default function TripPlannerPage() {
                   {Object.keys(CAT).map((c) => (
                     <span key={c} className={"tp-pref" + (form.prefs.includes(c) ? " on" : "")}
                       onClick={() => setF("prefs", form.prefs.includes(c) ? form.prefs.filter((x) => x !== c) : [...form.prefs, c])}>
-                      {catMeta(c).emoji} {catMeta(c).label}
+                      {catMeta(c).label}
                     </span>
                   ))}
                 </div>
@@ -705,15 +767,6 @@ export default function TripPlannerPage() {
                   {availableCats.map((c) => (
                     <span key={c} className={"tp-cat" + (activeCat === c ? " on" : "")} onClick={() => setActiveCat(c)}>{catMeta(c).label}</span>
                   ))}
-                </div>
-                <div className="tp-sortbar">
-                  <span>Sắp xếp:</span>
-                  <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                    <option value="rating">Đánh giá cao</option>
-                    <option value="price">Giá vé thấp</option>
-                    <option value="duration">Thời gian ngắn</option>
-                    <option value="route">Gần nhau (tối ưu lộ trình)</option>
-                  </select>
                 </div>
                 <div className="tp-poi-list">
                   {loadingPois && <div className="tp-loading"><div className="tp-spin" />Đang tải địa điểm...</div>}
@@ -912,9 +965,8 @@ export default function TripPlannerPage() {
 
             <div className="tp-export-actions tp-no-print">
               <button className="tp-btn tp-btn-ghost" onClick={() => go(3)}><IconBack /> Chỉnh sửa</button>
-              <button className="tp-btn tp-btn-primary" onClick={() => window.print()}>In / Lưu PDF</button>
+              <button className="tp-btn tp-btn-primary" onClick={exportTrip}>In / Lưu PDF</button>
               <button className="tp-btn tp-btn-green" onClick={saveTrip}>Lưu kế hoạch</button>
-              <button className="tp-btn tp-btn-ghost" onClick={() => showToast("Chia sẻ lên cộng đồng đang được thiết kế")}>Chia sẻ</button>
               <button className="tp-btn tp-btn-ghost" onClick={resetTrip}>+ Kế hoạch mới</button>
             </div>
           </div>

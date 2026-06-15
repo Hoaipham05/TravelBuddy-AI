@@ -68,6 +68,7 @@ const IconCompass = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill=
 const IconBell = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>);
 const IconUser = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>);
 const IconHeart = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 000-7.8z"/></svg>);
+const IconTrips = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>);
 const IconLogout = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>);
 
 const NAV = [
@@ -78,7 +79,7 @@ const NAV = [
   { key: "community", icon: "👥", label: "Cộng đồng" },
   { key: "ai",        icon: "🤖", label: "Trợ lý AI" },
 ];
-const ROUTES = { home: "/", plan: "/plan" };
+const ROUTES = { home: "/", plan: "/plan", flight: "/flights" };
 
 function getUser() {
   try { return JSON.parse(localStorage.getItem("tb_user") || sessionStorage.getItem("tb_user") || "null"); }
@@ -151,6 +152,9 @@ export function SiteHeader({ active = "home", onStartTour }) {
                 <button className="sc-menu-item" onClick={() => toast("Trang Hồ sơ đang được thiết kế")}>
                   <IconUser /> Hồ sơ của tôi
                   <span className="sc-menu-badge">{user?.level || "Explorer"}</span>
+                </button>
+                <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/my-trips"); }}>
+                  <IconTrips /> Kế hoạch của tôi
                 </button>
                 <button className="sc-menu-item" onClick={() => toast("Wishlist đang được thiết kế")}>
                   <IconHeart /> Wishlist của tôi

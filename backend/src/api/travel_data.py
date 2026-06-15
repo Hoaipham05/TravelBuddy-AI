@@ -8,11 +8,15 @@ frontend should be able to search/filter/compare without chat.
 from __future__ import annotations
 
 import os
-from datetime import date
+import sys
+import math
+import hashlib
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import APIRouter, HTTPException, Query
@@ -28,6 +32,9 @@ def _connect():
         user=os.getenv("DB_USER", "postgres"),
         password=os.getenv("DB_PASS", ""),
         cursor_factory=RealDictCursor,
+        # Trả timestamptz theo giờ Việt Nam (+07:00) để giờ bay hiển thị đúng local,
+        # thay vì UTC (gây lệch 7 tiếng so với web hãng/Google Flights).
+        options="-c timezone=Asia/Ho_Chi_Minh",
     )
 
 
@@ -178,6 +185,259 @@ def flight_price_calendar(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Airports & Airlines (master data dùng cho dropdown của FE)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/airports")
+def list_airports(domestic_only: bool = Query(default=True)):
+    where = "WHERE is_domestic_vn = TRUE" if domestic_only else ""
+    return {
+        "items": _fetch_all(
+            f"""
+            SELECT iata_code, name, city, country_code, lat, lng, timezone, is_domestic_vn
+            FROM airports
+            {where}
+            ORDER BY is_domestic_vn DESC, city, iata_code
+            """
+        )
+    }
+
+
+@router.get("/airlines")
+def list_airlines():
+    return {
+        "items": _fetch_all(
+            """
+            SELECT iata_code, name, country_code, booking_base_url, logo_url
+            FROM airlines
+            ORDER BY is_seed_target DESC, name
+            """
+        )
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Flight search — trả giá thật từ snapshots nếu có, nếu chưa có thì sinh
+#  ước tính thực tế (đánh dấu source="estimated") để FE luôn có dữ liệu.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_AIRLINE_PRICE_FACTOR = {"VN": 1.18, "VJ": 0.84, "QH": 1.0}
+_CABIN_MULT = {"economy": 1.0, "premium_economy": 1.5, "business": 2.6, "first": 4.0}
+_DEPART_SLOTS = [(6, 5), (8, 40), (11, 20), (14, 15), (17, 30), (20, 45)]
+
+
+def _haversine_km(lat1, lng1, lat2, lng2) -> float:
+    try:
+        r = 6371.0
+        p1, p2 = math.radians(lat1), math.radians(lat2)
+        dp = math.radians(lat2 - lat1)
+        dl = math.radians(lng2 - lng1)
+        a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * r * math.asin(math.sqrt(a))
+    except Exception:
+        return 0.0
+
+
+def _seed01(*parts) -> float:
+    """Pseudo-ngẫu nhiên xác định (0..1) từ các tham số → cùng input cho cùng kết quả."""
+    h = hashlib.md5("|".join(str(p) for p in parts).encode()).hexdigest()
+    return int(h[:8], 16) / 0xFFFFFFFF
+
+
+def _get_airport(iata: str) -> dict | None:
+    return _fetch_one(
+        "SELECT iata_code, name, city, lat, lng FROM airports WHERE iata_code = %(c)s",
+        {"c": iata.upper()},
+    )
+
+
+def _gen_offers(origin_ap: dict, dest_ap: dict, date_str: str, cabin: str, airlines: list[dict]) -> list[dict]:
+    dist = _haversine_km(origin_ap.get("lat") or 0, origin_ap.get("lng") or 0,
+                         dest_ap.get("lat") or 0, dest_ap.get("lng") or 0) or 600.0
+    base_dur = int(dist / 750 * 60) + 35  # phút: bay + buffer mặt đất
+    cabin_mult = _CABIN_MULT.get(cabin, 1.0)
+    rk = f'{origin_ap["iata_code"]}-{dest_ap["iata_code"]}'
+    offers: list[dict] = []
+    for al in airlines:
+        code = al["iata_code"].strip()
+        factor = _AIRLINE_PRICE_FACTOR.get(code, 1.0)
+        n_slots = 2 + (1 if _seed01(code, date_str, "n") > 0.45 else 0)  # 2–3 chuyến/hãng
+        chosen = sorted(range(len(_DEPART_SLOTS)), key=lambda i: _seed01(code, date_str, "slot", i))[:n_slots]
+        for si in chosen:
+            hh, mm = _DEPART_SLOTS[si]
+            r = _seed01(code, date_str, hh, mm)
+            price = (480000 + dist * 1850) * factor * cabin_mult * (0.82 + 0.42 * r)
+            price = int(round(price / 1000) * 1000)
+            dur = base_dur + int(r * 25)
+            depart = f"{date_str}T{hh:02d}:{mm:02d}:00+07:00"
+            arr = (datetime.fromisoformat(depart) + timedelta(minutes=dur)).isoformat()
+            offers.append({
+                "route_key": rk,
+                "departure_date": date_str,
+                "airline_iata": code,
+                "airline_name": al["name"],
+                "flight_number": f"{code}{100 + int(r * 800)}",
+                "cabin_class": cabin,
+                "depart_at": depart,
+                "arrive_at": arr,
+                "duration_minutes": dur,
+                "stops": 0,
+                "price_amount": price,
+                "currency": "VND",
+                "booking_url": al.get("booking_base_url"),
+                "airline_booking_base_url": al.get("booking_base_url"),
+                "source": "estimated",
+            })
+    offers.sort(key=lambda o: o["price_amount"])
+    return offers
+
+
+def _gen_calendar(origin_ap, dest_ap, center: date, cabin, airlines, before=3, after=10) -> list[dict]:
+    out = []
+    for delta in range(-before, after + 1):
+        d = center + timedelta(days=delta)
+        day_offers = _gen_offers(origin_ap, dest_ap, d.isoformat(), cabin, airlines)
+        if day_offers:
+            out.append({"date": d.isoformat(), "min_price": min(o["price_amount"] for o in day_offers), "currency": "VND"})
+    return out
+
+
+# Lấy giá THẬT từ SerpApi (Google Flights) cho đúng tuyến + ngày, lưu cache 24h.
+# Tái dùng collector có sẵn; chỉ economy. Trả số snapshot đã lưu.
+_TRAVEL_API_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "travel_api")
+
+
+def _fetch_live_serpapi(origin: str, destination: str, date_str: str, cabin: str) -> int:
+    if cabin != "economy" or not os.getenv("SERPAPI_API_KEY"):
+        return 0
+    if _TRAVEL_API_DIR not in sys.path:
+        sys.path.insert(0, _TRAVEL_API_DIR)
+    try:
+        from collectors.serpapi_flights import SerpApiFlightsCollector
+        from db.connection import get_conn
+    except Exception:
+        return 0
+    conn = None
+    try:
+        conn = get_conn()
+        saved = SerpApiFlightsCollector().collect_route(conn, origin, destination, date_str)
+        conn.commit()
+        return saved or 0
+    except Exception:
+        if conn:
+            try: conn.rollback()
+            except Exception: pass
+        return 0
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+
+
+@router.get("/flights/search")
+def flight_search(
+    origin: str = Query(..., min_length=3, max_length=3),
+    destination: str = Query(..., min_length=3, max_length=3),
+    depart_date: date = Query(...),
+    cabin_class: str = Query(default="economy"),
+    adults: int = Query(default=1, ge=1, le=9),
+):
+    o, d = origin.upper(), destination.upper()
+    if o == d:
+        raise HTTPException(status_code=400, detail="Origin and destination must differ")
+    origin_ap = _get_airport(o)
+    dest_ap = _get_airport(d)
+    if not origin_ap or not dest_ap:
+        raise HTTPException(status_code=404, detail="Airport not found")
+
+    airlines = _fetch_all(
+        "SELECT iata_code, name, booking_base_url FROM airlines WHERE is_seed_target = TRUE ORDER BY name"
+    ) or _fetch_all("SELECT iata_code, name, booking_base_url FROM airlines ORDER BY name")
+
+    date_str = depart_date.isoformat()
+
+    # 1) Ưu tiên giá thật (snapshots còn hạn) cho đúng ngày
+    real = _fetch_all(
+        """
+        SELECT fr.route_key, fps.departure_date, fps.airline_iata, fps.airline_name,
+               fps.flight_number, fps.cabin_class, fps.depart_at, fps.arrive_at,
+               fps.duration_minutes, fps.stops, fps.price_amount, fps.currency,
+               COALESCE(NULLIF(fps.booking_url, ''), a.booking_base_url) AS booking_url,
+               a.booking_base_url AS airline_booking_base_url,
+               fps.source
+        FROM flight_routes fr
+        JOIN flight_price_snapshots fps ON fps.route_id = fr.id
+        LEFT JOIN airlines a ON a.iata_code = fps.airline_iata
+        WHERE fr.origin_iata = %(o)s AND fr.destination_iata = %(d)s
+          AND fps.departure_date = %(date)s AND fps.cabin_class = %(c)s
+          AND fps.expires_at > NOW()
+        ORDER BY fps.price_amount ASC
+        """,
+        {"o": o, "d": d, "date": depart_date, "c": cabin_class},
+    )
+
+    # 2) Chưa có cache cho đúng ngày → thử lấy giá THẬT từ SerpApi (economy), lưu cache 24h
+    if not real and _fetch_live_serpapi(o, d, date_str, cabin_class):
+        real = _fetch_all(
+            """
+            SELECT fr.route_key, fps.departure_date, fps.airline_iata, fps.airline_name,
+                   fps.flight_number, fps.cabin_class, fps.depart_at, fps.arrive_at,
+                   fps.duration_minutes, fps.stops, fps.price_amount, fps.currency,
+                   COALESCE(NULLIF(fps.booking_url, ''), a.booking_base_url) AS booking_url,
+                   a.booking_base_url AS airline_booking_base_url, fps.source
+            FROM flight_routes fr
+            JOIN flight_price_snapshots fps ON fps.route_id = fr.id
+            LEFT JOIN airlines a ON a.iata_code = fps.airline_iata
+            WHERE fr.origin_iata = %(o)s AND fr.destination_iata = %(d)s
+              AND fps.departure_date = %(date)s AND fps.cabin_class = %(c)s
+              AND fps.expires_at > NOW()
+            ORDER BY fps.price_amount ASC
+            """,
+            {"o": o, "d": d, "date": depart_date, "c": cabin_class},
+        )
+
+    if real:
+        estimated = False
+        offers = real
+    else:
+        estimated = True
+        offers = _gen_offers(origin_ap, dest_ap, date_str, cabin_class, airlines)
+
+    # 3) Lịch giá: LUÔN dựng đủ 14 ngày (ước tính làm nền) để mọi tuyến nhất quán,
+    #    rồi phủ giá THẬT lên những ngày đã có snapshot.
+    calendar = _gen_calendar(origin_ap, dest_ap, depart_date, cabin_class, airlines)
+    real_mins = _fetch_all(
+        """
+        SELECT fps.departure_date AS date, MIN(fps.price_amount) AS min_price
+        FROM flight_routes fr
+        JOIN flight_price_snapshots fps ON fps.route_id = fr.id
+        WHERE fr.origin_iata = %(o)s AND fr.destination_iata = %(d)s
+          AND fps.cabin_class = %(c)s AND fps.expires_at > NOW()
+          AND fps.departure_date BETWEEN %(from)s AND %(to)s
+        GROUP BY fps.departure_date
+        """,
+        {"o": o, "d": d, "c": cabin_class,
+         "from": depart_date - timedelta(days=3), "to": depart_date + timedelta(days=10)},
+    )
+    rm = {str(r["date"]): r["min_price"] for r in real_mins}
+    for c in calendar:
+        if c["date"] in rm:
+            c["min_price"] = rm[c["date"]]
+
+    return {
+        "origin": origin_ap,
+        "destination": dest_ap,
+        "depart_date": date_str,
+        "cabin_class": cabin_class,
+        "adults": adults,
+        "currency": "VND",
+        "estimated": estimated,
+        "offers": offers,
+        "price_calendar": calendar,
+    }
+
+
 @router.get("/weather/forecast")
 def weather_forecast(destination: str, days: int = Query(default=16, ge=1, le=16)):
     return {
@@ -204,6 +464,78 @@ def weather_forecast(destination: str, days: int = Query(default=16, ge=1, le=16
             {"destination": destination, "days": days},
         )
     }
+
+
+@router.get("/weather/by-airport")
+def weather_by_airport(iata: str = Query(..., min_length=3, max_length=3),
+                       days: int = Query(default=10, ge=1, le=16),
+                       date_from: date | None = Query(default=None),
+                       date_to: date | None = Query(default=None)):
+    """
+    Thời tiết tại thành phố của sân bay đến (dùng cho trang vé máy bay).
+    Map mã sân bay → destination (qua iata_city_code), ưu tiên cache trong DB,
+    nếu chưa có thì lấy trực tiếp từ Open-Meteo (miễn phí, không cần key).
+    """
+    dest = _fetch_one(
+        """
+        SELECT slug, name, city, lat, lng
+        FROM destinations
+        WHERE iata_city_code = %(iata)s
+        ORDER BY COALESCE(popularity_rank, 999)
+        LIMIT 1
+        """,
+        {"iata": iata.upper()},
+    )
+    if not dest:
+        return {"destination": None, "items": [], "source": None}
+
+    cached = _fetch_all(
+        """
+        SELECT wdf.forecast_date, wdf.weather_code, wdf.temp_max_c, wdf.temp_min_c,
+               wdf.precipitation_sum_mm, wdf.precipitation_probability_max,
+               wdf.wind_speed_max_kmh, wdf.travel_score
+        FROM destinations d
+        JOIN weather_daily_forecasts wdf ON wdf.destination_id = d.id
+        JOIN weather_cache wc ON wc.id = wdf.weather_cache_id
+        WHERE d.slug = %(slug)s AND wc.expires_at > NOW()
+        ORDER BY wdf.forecast_date
+        LIMIT %(days)s
+        """,
+        {"slug": dest["slug"], "days": days},
+    )
+    if cached:
+        return {"destination": dest, "items": cached, "source": "cache"}
+
+    # fallback: Open-Meteo trực tiếp
+    try:
+        params = {
+            "latitude": dest["lat"], "longitude": dest["lng"],
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
+                     "precipitation_sum,precipitation_probability_max,wind_speed_10m_max",
+            "timezone": "auto",
+        }
+        # Nếu có khoảng ngày (khớp lịch giá) → dùng start/end; Open-Meteo dự báo tới ~16 ngày tới.
+        if date_from and date_to:
+            params["start_date"] = date_from.isoformat()
+            params["end_date"] = date_to.isoformat()
+        else:
+            params["forecast_days"] = days
+        r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=8)
+        r.raise_for_status()
+        dd = r.json().get("daily", {})
+        times = dd.get("time", [])
+        items = [{
+            "forecast_date": times[i],
+            "weather_code": (dd.get("weather_code") or [None])[i],
+            "temp_max_c": (dd.get("temperature_2m_max") or [None])[i],
+            "temp_min_c": (dd.get("temperature_2m_min") or [None])[i],
+            "precipitation_sum_mm": (dd.get("precipitation_sum") or [None])[i],
+            "precipitation_probability_max": (dd.get("precipitation_probability_max") or [None])[i],
+            "wind_speed_max_kmh": (dd.get("wind_speed_10m_max") or [None])[i],
+        } for i in range(len(times))]
+        return {"destination": dest, "items": items, "source": "open-meteo-live"}
+    except Exception:
+        return {"destination": dest, "items": [], "source": None}
 
 
 @router.get("/price-calendar/best-days")
