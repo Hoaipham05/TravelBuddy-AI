@@ -441,6 +441,20 @@ const DESTS = [
   { name: "Nha Trang", tag: "Biển xanh",    rating: "4.8", trips: "1.6k", img: "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=600&q=80" },
 ];
 
+// ảnh dự phòng cho điểm đến (DB chưa có ảnh) — map theo tên
+const DEST_IMG = {
+  "Phú Quốc": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80",
+  "Đà Lạt": "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&q=80",
+  "Hạ Long": "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=600&q=80",
+  "Sapa": "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80",
+  "Nha Trang": "https://images.unsplash.com/photo-1500375592092-40eb2168fd21?w=600&q=80",
+  "Hội An": "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600&q=80",
+  "Đà Nẵng": "https://images.unsplash.com/photo-1565024144860-1bc4f2d3c8b8?w=600&q=80",
+  "Hà Nội": "https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=600&q=80",
+  "Huế": "https://images.unsplash.com/photo-1528127269322-539801943592?w=600&q=80",
+};
+const DEST_TAGS = ["🔥 Hot nhất", "Được yêu thích", "Nổi bật", "Đáng đi", "Cộng đồng khen"];
+
 const EXPERIENCES = [
   { emoji: "🏖️", title: "Nghỉ dưỡng biển", desc: "Thư giãn tại những bãi biển đẹp nhất Việt Nam, resort 5 sao sát mặt nước.", img: "https://images.unsplash.com/photo-1473116763249-2faaef81ccda?w=700&q=80" },
   { emoji: "⛰️", title: "Trekking & núi rừng", desc: "Chinh phục Fansipan, ruộng bậc thang Sapa, săn mây bình minh.", img: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=700&q=80" },
@@ -474,6 +488,24 @@ function getUser() {
 
 export default function HomePage() {
   const navigate = useNavigate();
+
+  /* điểm đến nổi bật — tổng hợp từ cộng đồng (nhiều review tích cực + hữu ích) */
+  const [featured, setFeatured] = useState(null);
+  useEffect(() => {
+    fetch("/api/travel/community/featured-destinations?limit=5")
+      .then((r) => r.json())
+      .then((d) => setFeatured(d.items || []))
+      .catch(() => setFeatured([]));
+  }, []);
+  const destCards = (featured && featured.length)
+    ? featured.map((f, i) => ({
+        name: f.name, slug: f.slug, rating: f.avg_rating,
+        meta: `${(f.total_helpful || 0).toLocaleString("vi-VN")} lượt thích`,
+        img: f.image_url || DEST_IMG[f.name] || DEST_IMG["Phú Quốc"],
+        tag: DEST_TAGS[i] || "Nổi bật", big: i === 0,
+      }))
+    : DESTS.map((d) => ({ name: d.name, slug: null, rating: d.rating, meta: `${d.trips} lịch trình`, img: d.img, tag: d.tag, big: d.big }));
+  const openCommunity = (slug) => { try { if (slug) localStorage.setItem("tb_community_dest", slug); } catch (e) {} navigate("/community"); };
   const user = getUser();
   const fullName = user?.full_name || "Traveler";
   const firstName = fullName.trim().split(" ").slice(-1)[0];
@@ -527,9 +559,10 @@ export default function HomePage() {
   const endTour = () => { setTourStep(-1); localStorage.setItem("tb_tour_done", "1"); };
   const nextStep = () => { if (tourStep >= TOUR.length - 1) endTour(); else setTourStep((s) => s + 1); };
 
+  const NAV_ROUTES = { home: "/", plan: "/plan", flight: "/flights", hotel: "/hotels", community: "/community" };
   const onNav = (item) => {
     if (item.key === "home") return;
-    if (item.key === "plan") { navigate("/plan"); return; }
+    if (NAV_ROUTES[item.key]) { navigate(NAV_ROUTES[item.key]); return; }
     toast(`Trang "${item.label}" đang được thiết kế — sẽ sớm ra mắt! ✨`);
   };
 
@@ -583,21 +616,21 @@ export default function HomePage() {
             <h2 className="hp-sec-title">Điểm đến nổi bật</h2>
             <p className="hp-sec-sub">Những nơi được cộng đồng traveler yêu thích và ghé thăm nhiều nhất.</p>
           </div>
-          <button className="hp-link-more" onClick={() => toast("Trang điểm đến đang được thiết kế ✨")}>
-            Xem tất cả <IconArrow />
+          <button className="hp-link-more" onClick={() => openCommunity()}>
+            Xem cộng đồng <IconArrow />
           </button>
         </div>
 
         <div className="hp-dest-grid">
-          {DESTS.map((d) => (
-            <div key={d.name} className={"hp-dest" + (d.big ? " big" : "")} onClick={() => toast(`Điểm đến ${d.name} đang được thiết kế ✨`)}>
+          {destCards.map((d) => (
+            <div key={d.name} className={"hp-dest" + (d.big ? " big" : "")} onClick={() => openCommunity(d.slug)}>
               <img src={d.img} alt={d.name} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
               <span className="hp-dest-tag">{d.tag}</span>
               <div className="hp-dest-body">
                 <div className="hp-dest-name">{d.name}</div>
                 <div className="hp-dest-meta">
                   <span><span className="star">★</span> {d.rating}</span>
-                  <span>· {d.trips} lịch trình</span>
+                  <span>· {d.meta}</span>
                 </div>
               </div>
             </div>
@@ -632,10 +665,10 @@ export default function HomePage() {
         <div className="hp-sec-head hp-sec-head-row">
           <div>
             <div className="hp-sec-eyebrow">Cộng đồng</div>
-            <h2 className="hp-sec-title">Traveler đang chia sẻ 👥</h2>
+            <h2 className="hp-sec-title">Traveler đang chia sẻ</h2>
             <p className="hp-sec-sub">Kinh nghiệm thật, lịch trình thật từ cộng đồng yêu xê dịch.</p>
           </div>
-          <button className="hp-link-more" onClick={() => toast("Trang cộng đồng đang được thiết kế ✨")}>
+          <button className="hp-link-more" onClick={() => openCommunity()}>
             Vào cộng đồng <IconArrow />
           </button>
         </div>

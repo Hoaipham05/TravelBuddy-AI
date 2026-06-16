@@ -139,11 +139,15 @@ class SerpApiHotelsCollector:
             )
 
     def save_rates(self, conn, hotel_id: str, item: dict, checkin: str, checkout: str, adults: int) -> bool:
-        amount = _number(item.get("extracted_price"))
-        if amount is None:
-            total_rate = item.get("total_rate") if isinstance(item.get("total_rate"), dict) else {}
-            rate_per_night = item.get("rate_per_night") if isinstance(item.get("rate_per_night"), dict) else {}
-            amount = _number(total_rate.get("extracted_lowest") or rate_per_night.get("extracted_lowest"))
+        # Lưu GIÁ MỖI ĐÊM (đúng cách Google Hotels hiển thị, đã gồm thuế/phí),
+        # fallback extracted_price rồi tổng kỳ nghỉ nếu thiếu.
+        rate_per_night = item.get("rate_per_night") if isinstance(item.get("rate_per_night"), dict) else {}
+        total_rate = item.get("total_rate") if isinstance(item.get("total_rate"), dict) else {}
+        amount = _number(
+            rate_per_night.get("extracted_lowest")
+            or item.get("extracted_price")
+            or total_rate.get("extracted_lowest")
+        )
         if amount is None:
             return False
 

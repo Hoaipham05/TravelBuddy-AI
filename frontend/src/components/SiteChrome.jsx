@@ -79,7 +79,7 @@ const NAV = [
   { key: "community", icon: "👥", label: "Cộng đồng" },
   { key: "ai",        icon: "🤖", label: "Trợ lý AI" },
 ];
-const ROUTES = { home: "/", plan: "/plan", flight: "/flights" };
+const ROUTES = { home: "/", plan: "/plan", flight: "/flights", hotel: "/hotels", community: "/community" };
 
 function getUser() {
   try { return JSON.parse(localStorage.getItem("tb_user") || sessionStorage.getItem("tb_user") || "null"); }

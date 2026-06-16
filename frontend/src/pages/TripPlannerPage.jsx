@@ -577,8 +577,9 @@ export default function TripPlannerPage() {
       { title: "🎉 Lưu thành công!", okText: "Chia sẻ ngay", cancelText: "Để sau" }
     );
     if (share) {
-      showToast("Tính năng chia sẻ lên cộng đồng Traveler đang được phát triển ✨");
-      setTimeout(() => navigate("/"), 1200);
+      // mở trang Cộng đồng với lịch trình vừa lưu được chọn sẵn để chia sẻ
+      try { localStorage.setItem("tb_share_trip_id", String(tripId)); } catch (e) {}
+      navigate("/community");
     } else {
       navigate("/");
     }

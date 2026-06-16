@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+import json
 import math
 import hashlib
 from datetime import date, datetime, timedelta
@@ -19,7 +20,10 @@ from uuid import UUID
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from pydantic import BaseModel, Field
+
+from src.api.auth import get_current_user, UserPublic
 
 router = APIRouter(prefix="/travel", tags=["travel-data"])
 
@@ -322,6 +326,45 @@ def _fetch_live_serpapi(origin: str, destination: str, date_str: str, cabin: str
     try:
         conn = get_conn()
         saved = SerpApiFlightsCollector().collect_route(conn, origin, destination, date_str)
+        conn.commit()
+        return saved or 0
+    except Exception:
+        if conn:
+            try: conn.rollback()
+            except Exception: pass
+        return 0
+    finally:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+
+
+def _fetch_live_hotels(slug: str, checkin: str, checkout: str, adults: int) -> int:
+    """Lấy giá khách sạn THẬT từ SerpApi (Google Hotels) cho điểm đến + ngày, lưu cache."""
+    if not os.getenv("SERPAPI_API_KEY"):
+        return 0
+    if _TRAVEL_API_DIR not in sys.path:
+        sys.path.insert(0, _TRAVEL_API_DIR)
+    try:
+        from collectors.serpapi_hotels import SerpApiHotelsCollector
+        from db.connection import get_conn
+    except Exception:
+        return 0
+    conn = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, slug FROM destinations WHERE slug = %s", (slug,))
+        row = cur.fetchone()
+        cur.close()
+        if not row:
+            return 0
+        dest = {"id": str(row[0]), "name": row[1], "slug": row[2]}
+        col = SerpApiHotelsCollector()
+        raw = col.search_hotels(dest, checkin, checkout, adults)
+        if not raw:
+            return 0
+        saved = col.save_result_set(conn, dest, raw, checkin, checkout, adults)
         conn.commit()
         return saved or 0
     except Exception:
@@ -645,6 +688,23 @@ def list_hotels(
             ) rate ON TRUE
         """
 
+    # Khi có ngày nhận/trả phòng mà chưa có giá còn hạn → lấy giá THẬT từ SerpApi (cache 24h)
+    if checkin and checkout:
+        fresh = _fetch_one(
+            """
+            SELECT 1 FROM hotel_rate_snapshots hrs
+            JOIN hotels h ON h.id = hrs.hotel_id
+            JOIN destinations d ON d.id = h.destination_id
+            WHERE d.slug = %(destination)s AND hrs.checkin_date = %(checkin)s
+              AND hrs.checkout_date = %(checkout)s AND hrs.adults = %(adults)s
+              AND hrs.expires_at > NOW()
+            LIMIT 1
+            """,
+            {"destination": destination, "checkin": checkin, "checkout": checkout, "adults": adults},
+        )
+        if not fresh:
+            _fetch_live_hotels(destination, checkin.isoformat(), checkout.isoformat(), adults)
+
     return {
         "items": _fetch_all(
             f"""
@@ -789,3 +849,116 @@ def country_detail(code: str):
     if not row:
         raise HTTPException(status_code=404, detail="Country not found")
     return row
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Cộng đồng Traveler — feed bài chia sẻ (dùng bảng reviews, gắn theo điểm đến)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/community/posts")
+def community_posts(
+    destination: str | None = Query(default=None),
+    sort: str = Query(default="recent"),
+    limit: int = Query(default=40, ge=1, le=100),
+):
+    where = ["1=1"]
+    params: dict[str, Any] = {"limit": limit}
+    if destination:
+        where.append("d.slug = %(destination)s")
+        params["destination"] = destination
+    order = "r.helpful_count DESC, r.created_at DESC" if sort == "helpful" else "r.created_at DESC"
+    return {
+        "items": _fetch_all(
+            f"""
+            SELECT r.id, r.rating, r.content, r.images, r.trip_data, r.helpful_count, r.created_at,
+                   u.full_name AS author_name, u.level AS author_level, u.avatar_url AS author_avatar,
+                   d.slug AS destination_slug, d.name AS destination_name
+            FROM reviews r
+            JOIN users u ON u.id = r.user_id
+            LEFT JOIN destinations d ON d.id = r.destination_id
+            WHERE {' AND '.join(where)}
+            ORDER BY {order}
+            LIMIT %(limit)s
+            """,
+            params,
+        )
+    }
+
+
+class CommunityPostIn(BaseModel):
+    destination_slug: str = Field(..., min_length=1)
+    content: str = Field(..., min_length=3, max_length=2000)
+    rating: float = Field(default=5, ge=1, le=5)
+    images: list[str] = Field(default_factory=list)
+    trip_data: dict | None = None  # snapshot lịch trình đã tạo (bắt buộc gắn theo bài)
+
+
+@router.post("/community/posts")
+def create_community_post(body: CommunityPostIn, user: UserPublic = Depends(get_current_user)):
+    if not body.trip_data:
+        raise HTTPException(status_code=400, detail="Bài viết phải gắn với một lịch trình bạn đã tạo.")
+    dest = _fetch_one("SELECT id, slug, name FROM destinations WHERE slug = %(s)s", {"s": body.destination_slug})
+    if not dest:
+        raise HTTPException(status_code=404, detail="Destination not found")
+    row = _fetch_one(
+        """
+        INSERT INTO reviews (user_id, destination_id, rating, content, images, trip_data)
+        VALUES (%(uid)s, %(did)s, %(rating)s, %(content)s, %(images)s::jsonb, %(trip)s::jsonb)
+        RETURNING id, rating, content, images, trip_data, helpful_count, created_at
+        """,
+        {
+            "uid": str(user.id),
+            "did": dest["id"],
+            "rating": round(body.rating, 1),
+            "content": body.content.strip(),
+            "images": json.dumps(body.images),
+            "trip": json.dumps(body.trip_data),
+        },
+    )
+    row.update({
+        "author_name": user.full_name,
+        "author_level": user.level,
+        "author_avatar": user.avatar_url,
+        "destination_slug": dest["slug"],
+        "destination_name": dest["name"],
+    })
+    return row
+
+
+@router.post("/community/posts/{post_id}/helpful")
+def community_post_helpful(post_id: str):
+    row = _fetch_one(
+        "UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = %(id)s RETURNING helpful_count",
+        {"id": post_id},
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"helpful_count": row["helpful_count"]}
+
+
+@router.get("/community/featured-destinations")
+def community_featured_destinations(limit: int = Query(default=5, ge=1, le=12)):
+    """Điểm đến nổi bật cho HomePage — tổng hợp từ cộng đồng:
+    nhiều review tích cực (avg rating >= 4) + nhiều lượt hữu ích."""
+    return {
+        "items": _fetch_all(
+            """
+            SELECT d.slug, d.name, d.city,
+                   COUNT(r.id) AS review_count,
+                   ROUND(AVG(r.rating)::numeric, 1) AS avg_rating,
+                   COALESCE(SUM(r.helpful_count), 0) AS total_helpful,
+                   img.url AS image_url
+            FROM destinations d
+            JOIN reviews r ON r.destination_id = d.id
+            LEFT JOIN LATERAL (
+                SELECT url FROM destination_images
+                WHERE destination_id = d.id ORDER BY is_primary DESC, sort_order ASC LIMIT 1
+            ) img ON TRUE
+            GROUP BY d.id, img.url
+            HAVING AVG(r.rating) >= 4
+            ORDER BY COALESCE(SUM(r.helpful_count), 0) DESC, COUNT(r.id) DESC, AVG(r.rating) DESC
+            LIMIT %(limit)s
+            """,
+            {"limit": limit},
+        )
+    }
