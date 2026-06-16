@@ -8,6 +8,8 @@ import MyTripsPage from "./pages/MyTripsPage";
 import FlightsPage from "./pages/FlightsPage";
 import HotelsPage from "./pages/HotelsPage";
 import CommunityPage from "./pages/CommunityPage";
+import AssistantPage from "./pages/AssistantPage";
+import AssistantWidget from "./components/assistant/AssistantWidget";
 
 function getToken() {
   return localStorage.getItem("tb_token") || sessionStorage.getItem("tb_token");
@@ -28,8 +30,10 @@ createRoot(document.getElementById("root")).render(
         <Route path="/flights" element={<Protected><FlightsPage /></Protected>} />
         <Route path="/hotels" element={<Protected><HotelsPage /></Protected>} />
         <Route path="/community" element={<Protected><CommunityPage /></Protected>} />
+        <Route path="/assistant" element={<Protected><AssistantPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <AssistantWidget />
     </BrowserRouter>
   </StrictMode>
 );

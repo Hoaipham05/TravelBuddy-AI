@@ -25,6 +25,7 @@ from src.database_additions import (
 )
 from src.tools.web_search import web_search as _web_search
 from src.tools.image_search import search_images
+from src.tools.travel_db import DB_TOOLS
 
 _ENRICH = SEARCH_MODE_DEFAULT in ("hybrid", "on")
 
@@ -729,6 +730,8 @@ def get_travel_tips(destination: str) -> str:
 
 
 # ── Export ─────────────────────────────────────────────────────────────────────
+# Tool tra cứu dữ liệu BE (destination/POI/weather/packing/visa/exchange/community)
+# được nạp từ travel_db.py — giúp AI dùng ĐÚNG dữ liệu mà frontend đang hiển thị.
 ALL_TOOLS = [
     plan_journey,
     search_flights,
@@ -736,6 +739,7 @@ ALL_TOOLS = [
     search_hotels,
     calculate_budget,
     get_travel_tips,
+    *DB_TOOLS,
     search_images,
     _web_search,
 ]

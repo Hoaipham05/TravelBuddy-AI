@@ -25,7 +25,7 @@ body { font-family:'Inter',-apple-system,sans-serif; background:#F0F9FF; color:#
 }
 .cm-wrap { min-height:calc(100vh - 64px); }
 
-.cm-hero { background:linear-gradient(125deg,#5B21B6,var(--ocean) 55%,var(--sky)); padding:2.25rem 2rem 2.5rem; position:relative; overflow:hidden; }
+.cm-hero { background:linear-gradient(125deg,var(--deepest),var(--ocean) 60%,var(--sky)); padding:2.25rem 2rem 2.5rem; position:relative; overflow:hidden; }
 .cm-hero::before { content:''; position:absolute; inset:0; background-image:radial-gradient(circle,rgba(255,255,255,0.08) 1.5px,transparent 1.5px); background-size:26px 26px; }
 .cm-hero-in { max-width:1000px; margin:0 auto; position:relative; z-index:2; }
 .cm-hero h1 { font-family:'Nunito',sans-serif; font-weight:900; font-size:1.875rem; color:#fff; letter-spacing:-0.02em; }
@@ -88,6 +88,34 @@ body { font-family:'Inter',-apple-system,sans-serif; background:#F0F9FF; color:#
 .cm-act { display:inline-flex; align-items:center; gap:0.4rem; padding:0.45rem 0.8rem; border:none; background:none; border-radius:9px; font-family:inherit; font-size:0.8125rem; font-weight:700; color:var(--muted); cursor:pointer; transition:all 0.15s; }
 .cm-act:hover { background:#F1F5F9; color:var(--ocean); }
 .cm-act.liked { color:var(--coral); }
+.cm-act.on { color:var(--ocean); background:#EFF8FF; }
+
+/* bình luận (tối giản) */
+.cm-comments { border-top:1px solid var(--border); margin-top:0.5rem; padding-top:0.8rem; display:flex; flex-direction:column; gap:0.65rem; }
+.cm-cmt { display:flex; gap:0.55rem; align-items:flex-start; }
+.cm-cmt-av { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.6875rem; }
+.cm-cmt-body { background:#F1F5F9; border-radius:12px; padding:0.45rem 0.75rem; font-size:0.8125rem; line-height:1.45; min-width:0; flex:1; }
+.cm-cmt-nm { font-family:'Nunito',sans-serif; font-weight:800; margin-right:0.4rem; }
+.cm-cmt-tx { color:#1E293B; }
+.cm-cmt-tm { display:block; font-size:0.6875rem; color:var(--muted); margin-top:0.15rem; }
+.cm-cmt-foot { display:flex; gap:0.4rem; margin-top:0.2rem; padding-left:0.1rem; }
+.cm-reply-btn { border:none; background:none; font-size:0.6875rem; font-weight:700; color:var(--muted); cursor:pointer; padding:0.15rem 0.45rem; border-radius:6px; transition:all 0.12s; }
+.cm-reply-btn:hover { color:var(--ocean); background:#EFF8FF; }
+.cm-replies { margin-left:2.4rem; padding-left:0.625rem; border-left:2px solid var(--border); display:flex; flex-direction:column; gap:0.45rem; margin-top:0.25rem; }
+.cm-replies .cm-cmt-av { width:24px; height:24px; font-size:0.5625rem; }
+.cm-reply-input-wrap { margin-top:0.35rem; margin-left:2.4rem; display:flex; gap:0.45rem; align-items:center; }
+.cm-reply-input-wrap .cm-cmt-av { width:24px; height:24px; font-size:0.5625rem; }
+.cm-reply-input-wrap input { flex:1; border:1.5px solid var(--border); border-radius:100px; padding:0.4rem 0.75rem; font-family:inherit; font-size:0.8rem; outline:none; transition:border-color 0.15s; }
+.cm-reply-input-wrap input:focus { border-color:var(--sky); }
+.cm-reply-input-wrap button { flex-shrink:0; border:none; border-radius:100px; padding:0.4rem 0.85rem; background:var(--ocean); color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.75rem; cursor:pointer; white-space:nowrap; }
+.cm-reply-input-wrap button:disabled { opacity:0.5; }
+.cm-cmt-empty { font-size:0.8125rem; color:var(--muted); }
+.cm-cmt-input { display:flex; gap:0.5rem; align-items:center; }
+.cm-cmt-input input { flex:1; border:1.5px solid var(--border); border-radius:100px; padding:0.5rem 0.9rem; font-family:inherit; font-size:0.8125rem; outline:none; transition:border-color 0.15s; }
+.cm-cmt-input input:focus { border-color:var(--sky); }
+.cm-cmt-input button { flex-shrink:0; border:none; border-radius:100px; padding:0.5rem 1.05rem; background:var(--ocean); color:#fff; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.8125rem; cursor:pointer; }
+.cm-cmt-input button:hover { background:var(--deep); }
+.cm-cmt-input button:disabled { opacity:0.5; cursor:not-allowed; }
 
 /* sidebar */
 .cm-side { display:flex; flex-direction:column; gap:1rem; position:sticky; top:80px; }
@@ -224,6 +252,16 @@ export default function CommunityPage() {
   const [rating, setRating] = useState(5);
   const [posting, setPosting] = useState(false);
 
+  /* bình luận */
+  const [openC, setOpenC] = useState(() => new Set());
+  const [cmts, setCmts] = useState({});
+  const [cdraft, setCdraft] = useState({});
+  const [csending, setCsending] = useState(false);
+  /* trả lời bình luận */
+  const [replyTo, setReplyTo] = useState(() => new Set());
+  const [rdraft, setRdraft] = useState({});
+  const [rsending, setRsending] = useState(false);
+
   useEffect(() => {
     fetch("/api/travel/destinations?limit=50").then((r) => r.json())
       .then((d) => setDestinations(d.items || [])).catch(() => {});
@@ -297,10 +335,39 @@ export default function CommunityPage() {
     try { await fetch(`/api/travel/community/posts/${post.id}/helpful`, { method: "POST" }); } catch { /* ignore */ }
   };
 
-  const sharePost = (post) => {
-    const txt = `${post.author_name} chia sẻ lịch trình ${post.destination_name}: "${post.content}"`;
-    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast("Đã sao chép nội dung bài viết"));
-    else toast("Chia sẻ: " + post.destination_name);
+  const toggleComments = (pid) => {
+    setOpenC((prev) => { const n = new Set(prev); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+    if (cmts[pid] === undefined) {
+      fetch(`/api/travel/community/posts/${pid}/comments`).then((r) => r.json())
+        .then((d) => setCmts((m) => ({ ...m, [pid]: d.items || [] }))).catch(() => {});
+    }
+  };
+
+  const submitComment = async (pid, parentId = null) => {
+    const content = (parentId ? (rdraft[parentId] || "") : (cdraft[pid] || "")).trim();
+    if (!content) return;
+    const token = getToken();
+    if (!token) { toast("Bạn cần đăng nhập để bình luận"); navigate("/login"); return; }
+    if (parentId) setRsending(true); else setCsending(true);
+    try {
+      const res = await fetch(`/api/travel/community/posts/${pid}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ content, parent_id: parentId || null }),
+      });
+      if (res.status === 401) { toast("Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại."); navigate("/login"); return; }
+      if (!res.ok) throw new Error();
+      const c = await res.json();
+      setCmts((m) => ({ ...m, [pid]: [...(m[pid] || []), c] }));
+      if (parentId) {
+        setRdraft((d) => ({ ...d, [parentId]: "" }));
+        setReplyTo((r) => { const n = new Set(r); n.delete(parentId); return n; });
+      } else {
+        setCdraft((d) => ({ ...d, [pid]: "" }));
+      }
+      setPosts((ps) => ps.map((x) => x.id === pid ? { ...x, comment_count: (x.comment_count || 0) + 1 } : x));
+    } catch { toast("Không gửi được bình luận"); }
+    finally { if (parentId) setRsending(false); else setCsending(false); }
   };
 
   const trending = useMemo(() => {
@@ -414,9 +481,71 @@ export default function CommunityPage() {
                     <button className={"cm-act" + (liked.has(p.id) ? " liked" : "")} onClick={() => toggleHelpful(p)}>
                       {liked.has(p.id) ? "❤️" : "🤍"} Hữu ích {p.helpful_count > 0 && `· ${p.helpful_count}`}
                     </button>
-                    <button className="cm-act" onClick={() => toast("Bình luận đang được phát triển ✨")}>💬 Bình luận</button>
-                    <button className="cm-act" onClick={() => sharePost(p)}>🔗 Chia sẻ</button>
+                    <button className={"cm-act" + (openC.has(p.id) ? " on" : "")} onClick={() => toggleComments(p.id)}>
+                      💬 Bình luận {p.comment_count > 0 && `· ${p.comment_count}`}
+                    </button>
                   </div>
+
+                  {openC.has(p.id) && (() => {
+                    const allCmts = cmts[p.id] || [];
+                    const topLevel = allCmts.filter((c) => !c.parent_id);
+                    const byParent = allCmts.reduce((m, c) => { if (c.parent_id) { (m[c.parent_id] = m[c.parent_id] || []).push(c); } return m; }, {});
+                    return (
+                      <div className="cm-comments">
+                        {cmts[p.id] !== undefined && allCmts.length === 0 && <div className="cm-cmt-empty">Chưa có bình luận. Hãy là người đầu tiên!</div>}
+                        {topLevel.map((c) => (
+                          <div key={c.id}>
+                            <div className="cm-cmt">
+                              <div className="cm-cmt-av" style={{ background: avGrad(c.author_name) }}>{initials(c.author_name)}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div className="cm-cmt-body">
+                                  <span className="cm-cmt-nm">{c.author_name}</span>
+                                  <span className="cm-cmt-tx">{c.content}</span>
+                                  <span className="cm-cmt-tm">{timeAgo(c.created_at)}</span>
+                                </div>
+                                <div className="cm-cmt-foot">
+                                  <button className="cm-reply-btn" onClick={() => setReplyTo((r) => { const n = new Set(r); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; })}>
+                                    {replyTo.has(c.id) ? "Huỷ" : "Trả lời"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            {(byParent[c.id] || []).length > 0 && (
+                              <div className="cm-replies">
+                                {(byParent[c.id] || []).map((r) => (
+                                  <div key={r.id} className="cm-cmt">
+                                    <div className="cm-cmt-av" style={{ background: avGrad(r.author_name) }}>{initials(r.author_name)}</div>
+                                    <div className="cm-cmt-body">
+                                      <span className="cm-cmt-nm">{r.author_name}</span>
+                                      <span className="cm-cmt-tx">{r.content}</span>
+                                      <span className="cm-cmt-tm">{timeAgo(r.created_at)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {replyTo.has(c.id) && (
+                              <div className="cm-reply-input-wrap">
+                                <div className="cm-cmt-av" style={{ background: avGrad(user?.full_name) }}>{initials(user?.full_name)}</div>
+                                <input value={rdraft[c.id] || ""}
+                                  onChange={(e) => setRdraft((d) => ({ ...d, [c.id]: e.target.value }))}
+                                  onKeyDown={(e) => { if (e.key === "Enter") submitComment(p.id, c.id); }}
+                                  placeholder={`Trả lời ${c.author_name.trim().split(" ").slice(-1)[0]}...`}
+                                  maxLength={1000} autoFocus />
+                                <button onClick={() => submitComment(p.id, c.id)} disabled={rsending}>Gửi</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div className="cm-cmt-input">
+                          <div className="cm-cmt-av" style={{ background: avGrad(user?.full_name) }}>{initials(user?.full_name)}</div>
+                          <input value={cdraft[p.id] || ""} onChange={(e) => setCdraft((d) => ({ ...d, [p.id]: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === "Enter") submitComment(p.id); }} placeholder="Viết bình luận..." maxLength={1000} />
+                          <button onClick={() => submitComment(p.id)} disabled={csending}>Gửi</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}

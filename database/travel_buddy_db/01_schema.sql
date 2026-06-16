@@ -30,6 +30,7 @@ DROP TABLE IF EXISTS trip_days CASCADE;
 DROP TABLE IF EXISTS trips CASCADE;
 DROP TABLE IF EXISTS packing_template_items CASCADE;
 DROP TABLE IF EXISTS packing_templates CASCADE;
+DROP TABLE IF EXISTS community_comments CASCADE;
 DROP TABLE IF EXISTS reviews CASCADE;
 DROP TABLE IF EXISTS country_visa_rules CASCADE;
 DROP TABLE IF EXISTS countries CASCADE;
@@ -543,10 +544,20 @@ CREATE TABLE reviews (
     content TEXT NOT NULL,
     images JSONB NOT NULL DEFAULT '[]',
     helpful_count INT NOT NULL DEFAULT 0,
+    trip_data JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_review_single_target CHECK (
         ((destination_id IS NOT NULL)::INT + (hotel_id IS NOT NULL)::INT + (poi_id IS NOT NULL)::INT) = 1
     )
+);
+
+CREATE TABLE community_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    review_id UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    parent_id UUID REFERENCES community_comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE price_alerts (
@@ -648,6 +659,8 @@ CREATE INDEX idx_trip_days_trip ON trip_days(trip_id, day_number);
 CREATE INDEX idx_itinerary_day ON itinerary_items(day_id, sort_order);
 CREATE INDEX idx_reviews_destination ON reviews(destination_id);
 CREATE INDEX idx_reviews_hotel ON reviews(hotel_id);
+CREATE INDEX idx_community_comments_review ON community_comments(review_id, created_at);
+CREATE INDEX idx_community_comments_parent ON community_comments(parent_id) WHERE parent_id IS NOT NULL;
 CREATE INDEX idx_price_alerts_active ON price_alerts(user_id) WHERE is_active = TRUE;
 
 CREATE INDEX idx_destinations_fts ON destinations

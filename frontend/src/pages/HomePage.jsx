@@ -707,10 +707,7 @@ export default function HomePage() {
       {/* ─── FOOTER ─── */}
       <SiteFooter />
 
-      {/* ─── AI FAB ─── */}
-      <button className="hp-ai-fab" onClick={() => toast("Trợ lý AI đang được thiết kế ✨")}>
-        <span className="ai-pulse" /> <IconSpark /> <span>Trợ lý AI</span>
-      </button>
+      {/* Nút Trợ lý AI dùng chung là <AssistantWidget/> (nút robot nổi trên mọi trang) */}
 
       {/* ─── ONBOARDING TOUR ─── */}
       {tourStep >= 0 && rect && (

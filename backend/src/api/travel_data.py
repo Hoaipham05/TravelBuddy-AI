@@ -872,7 +872,8 @@ def community_posts(
             f"""
             SELECT r.id, r.rating, r.content, r.images, r.trip_data, r.helpful_count, r.created_at,
                    u.full_name AS author_name, u.level AS author_level, u.avatar_url AS author_avatar,
-                   d.slug AS destination_slug, d.name AS destination_name
+                   d.slug AS destination_slug, d.name AS destination_name,
+                   (SELECT COUNT(*) FROM community_comments cc WHERE cc.review_id = r.id) AS comment_count
             FROM reviews r
             JOIN users u ON u.id = r.user_id
             LEFT JOIN destinations d ON d.id = r.destination_id
@@ -962,3 +963,44 @@ def community_featured_destinations(limit: int = Query(default=5, ge=1, le=12)):
             {"limit": limit},
         )
     }
+
+
+# ─── Bình luận cho bài cộng đồng ─────────────────────────────────────────────
+
+@router.get("/community/posts/{post_id}/comments")
+def list_comments(post_id: str):
+    return {
+        "items": _fetch_all(
+            """
+            SELECT c.id, c.content, c.created_at, c.parent_id,
+                   u.full_name AS author_name, u.avatar_url AS author_avatar
+            FROM community_comments c
+            JOIN users u ON u.id = c.user_id
+            WHERE c.review_id = %(pid)s
+            ORDER BY COALESCE(c.parent_id::text, c.id::text), c.created_at ASC
+            """,
+            {"pid": post_id},
+        )
+    }
+
+
+class CommentIn(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+    parent_id: str | None = None
+
+
+@router.post("/community/posts/{post_id}/comments")
+def add_comment(post_id: str, body: CommentIn, user: UserPublic = Depends(get_current_user)):
+    if not _fetch_one("SELECT 1 FROM reviews WHERE id = %(id)s", {"id": post_id}):
+        raise HTTPException(status_code=404, detail="Post not found")
+    row = _fetch_one(
+        """
+        INSERT INTO community_comments (review_id, user_id, content, parent_id)
+        VALUES (%(pid)s, %(uid)s, %(c)s, %(parent_id)s)
+        RETURNING id, content, created_at, parent_id
+        """,
+        {"pid": post_id, "uid": str(user.id), "c": body.content.strip(),
+         "parent_id": body.parent_id if body.parent_id else None},
+    )
+    row.update({"author_name": user.full_name, "author_avatar": user.avatar_url})
+    return row
