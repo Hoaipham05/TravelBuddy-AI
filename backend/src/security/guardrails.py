@@ -200,7 +200,7 @@ _INJECTION_PATTERNS: list[_InjectionPattern] = [
     _p(r"(repeat|print|output|write|show|tell\s+me|reveal|display|echo)\s+(your\s+|the\s+|all\s+)?(system\s+prompt|instructions?|initial\s+prompt|prompt\s+template|guidelines?|rules?)",
        "system prompt exfiltration", 8, "exfiltration"),
 
-    _p(r"what\s+(are\s+)?(your\s+)?(exact\s+)?(instructions?|system\s+prompt|rules?|guidelines?|directives?)",
+    _p(r"what\s+(are\s+)?(your\s+)?(exact\s+)?(system\s+)?(instructions?|system\s+prompt|prompt\s+template|guidelines?|directives?)",
        "instruction disclosure request", 7, "exfiltration"),
 
     _p(r"(copy|paste|dump|leak|expose)\s+(your\s+)?(prompt|instructions?|context|memory)",
@@ -298,7 +298,7 @@ _TRAVEL_KEYWORDS = re.compile(
 _CLEARLY_HARMFUL = re.compile(
     r"\b(how\s+to\s+(make|build|create|synthesize)\s+(bomb|weapon|drug|malware|virus|exploit)|"
     r"child\s+(porn|abuse|exploitation|grooming)|"
-    r"hướng\s+dẫn\s+(chế|tạo|làm)\s+(bom|vũ\s+khí|ma\s+túy)|"
+    r"(hướng\s+dẫn\s+|cách\s+)?(chế\s*tạo|chế|tạo|làm|sản\s*xuất)\s+(bom|vũ\s+khí|ma\s+túy|chất\s+nổ|thuốc\s+nổ)|"
     r"suicide\s+(method|how\s+to)|cách\s+t[ựu]\s+t[ửu]|"
     r"hack(ing)?\s+(into\s+)?[a-z0-9\-\.]+\.(gov|mil|bank|vn)|"
     r"(credit\s+card|thẻ\s+tín\s+dụng)\s+(number|số|clone|steal|cướp))\b",
