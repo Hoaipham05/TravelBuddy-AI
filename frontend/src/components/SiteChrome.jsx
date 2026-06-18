@@ -40,6 +40,24 @@ const CSS = `
 .sc-menu-item.danger:hover { background:#FEF2F2; }
 .sc-menu-badge { margin-left:auto; font-size:0.6875rem; font-weight:700; padding:0.1rem 0.45rem; border-radius:100px; background:#FEF3C7; color:#B45309; }
 
+/* badge số chưa đọc trên chuông */
+.sc-bell-count { position:absolute; top:-4px; right:-4px; min-width:17px; height:17px; padding:0 4px; border-radius:100px; background:#FB7185; color:#fff; font-size:0.625rem; font-weight:800; display:flex; align-items:center; justify-content:center; border:1.5px solid #fff; }
+/* panel thông báo */
+.sc-notif { position:absolute; top:calc(100% + 10px); right:0; width:340px; max-width:88vw; background:#fff; border-radius:14px; box-shadow:0 16px 48px rgba(15,23,42,0.18); border:1px solid #E2E8F0; z-index:250; animation:sc-menu-in 0.18s ease; overflow:hidden; }
+.sc-notif-head { display:flex; align-items:center; justify-content:space-between; padding:0.8rem 0.9rem; border-bottom:1px solid #E2E8F0; }
+.sc-notif-head .t { font-family:'Nunito',sans-serif; font-weight:900; font-size:0.95rem; color:#0F172A; }
+.sc-notif-head button { border:none; background:none; font-size:0.75rem; font-weight:700; color:#0284C7; cursor:pointer; }
+.sc-notif-list { max-height:380px; overflow-y:auto; }
+.sc-notif-item { display:flex; gap:0.6rem; align-items:flex-start; padding:0.7rem 0.9rem; border-bottom:1px solid #F1F5F9; cursor:pointer; transition:background 0.12s; }
+.sc-notif-item:hover { background:#F8FAFC; }
+.sc-notif-item.unread { background:#EFF8FF; }
+.sc-notif-item.unread:hover { background:#E0F2FE; }
+.sc-notif-ic { width:34px; height:34px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1rem; background:#F1F5F9; }
+.sc-notif-tx { font-size:0.8125rem; line-height:1.4; color:#1E293B; }
+.sc-notif-tm { font-size:0.6875rem; color:#94A3B8; margin-top:0.15rem; }
+.sc-notif-empty { padding:2.5rem 1rem; text-align:center; color:#94A3B8; font-size:0.875rem; }
+.sc-notif-empty .ic { font-size:2rem; display:block; margin-bottom:0.4rem; }
+
 .sc-footer { background:#0F172A; padding:1.125rem 2rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; }
 .sc-footer-brand { display:flex; align-items:center; gap:0.5rem; font-family:'Nunito',sans-serif; font-size:0.875rem; font-weight:700; color:rgba(255,255,255,0.5); }
 .sc-footer-brand .hi { color:#0EA5E9; }
@@ -85,6 +103,17 @@ function getUser() {
   try { return JSON.parse(localStorage.getItem("tb_user") || sessionStorage.getItem("tb_user") || "null"); }
   catch { return null; }
 }
+function getToken() { return localStorage.getItem("tb_token") || sessionStorage.getItem("tb_token"); }
+
+const NOTIF_ICON = { helpful: "❤️", comment: "💬", reply: "↩️", save: "⭐", system: "🔔" };
+const notifTimeAgo = (iso) => {
+  const s = Math.max(1, (Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return "vừa xong";
+  const m = s / 60; if (m < 60) return `${Math.floor(m)} phút trước`;
+  const h = m / 60; if (h < 24) return `${Math.floor(h)} giờ trước`;
+  const d = h / 24; if (d < 30) return `${Math.floor(d)} ngày trước`;
+  return `${Math.floor(d / 30)} tháng trước`;
+};
 
 export function SiteHeader({ active = "home", onStartTour }) {
   const navigate = useNavigate();
@@ -96,11 +125,59 @@ export function SiteHeader({ active = "home", onStartTour }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef(null);
 
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const notifRef = useRef(null);
+
   useEffect(() => {
-    const h = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setMenuOpen(false); };
+    const h = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target)) setNotifOpen(false);
+    };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const loadNotifs = () => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/travel/notifications?limit=30", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : { items: [], unread: 0 })
+      .then((d) => { setNotifs(d.items || []); setUnread(d.unread || 0); })
+      .catch(() => {});
+  };
+
+  // tải số chưa đọc khi mở trang + poll mỗi 60s
+  useEffect(() => {
+    loadNotifs();
+    const id = setInterval(loadNotifs, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const openNotif = () => {
+    const willOpen = !notifOpen;
+    setNotifOpen(willOpen);
+    if (willOpen) {
+      loadNotifs();
+      if (unread > 0) {
+        const token = getToken();
+        setUnread(0);
+        fetch("/api/travel/notifications/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({}),
+        }).catch(() => {});
+      }
+    }
+  };
+
+  const onNotifClick = (n) => {
+    setNotifOpen(false);
+    const slug = n.data?.destination_slug;
+    if (slug) { try { localStorage.setItem("tb_community_dest", slug); } catch {} }
+    navigate("/community");
+  };
 
   const onNav = (n) => {
     if (n.key === active) return;
@@ -135,9 +212,33 @@ export function SiteHeader({ active = "home", onStartTour }) {
           <button className="sc-tour-btn" onClick={onStartTour || (() => { try { localStorage.setItem("tb_force_tour", "1"); } catch (e) {} navigate("/"); })}>
             <IconCompass /><span>Xem hướng dẫn</span>
           </button>
-          <button className="sc-icon-btn" onClick={() => toast("Bạn chưa có thông báo mới")}>
-            <IconBell /><span className="sc-dot" />
-          </button>
+          <div className="sc-avatar-wrap" ref={notifRef}>
+            <button className="sc-icon-btn" onClick={openNotif} title="Thông báo">
+              <IconBell />
+              {unread > 0 && <span className="sc-bell-count">{unread > 9 ? "9+" : unread}</span>}
+            </button>
+            {notifOpen && (
+              <div className="sc-notif">
+                <div className="sc-notif-head">
+                  <span className="t">Thông báo</span>
+                  {notifs.length > 0 && <button onClick={() => navigate("/community")}>Đến cộng đồng</button>}
+                </div>
+                <div className="sc-notif-list">
+                  {notifs.length === 0 ? (
+                    <div className="sc-notif-empty"><span className="ic">🔔</span>Chưa có thông báo nào</div>
+                  ) : notifs.map((n) => (
+                    <div key={n.id} className={"sc-notif-item" + (n.is_read ? "" : " unread")} onClick={() => onNotifClick(n)}>
+                      <div className="sc-notif-ic">{NOTIF_ICON[n.kind] || "🔔"}</div>
+                      <div>
+                        <div className="sc-notif-tx">{n.message}</div>
+                        <div className="sc-notif-tm">{notifTimeAgo(n.created_at)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="sc-avatar-wrap" ref={wrapRef}>
             <button className="sc-avatar" data-nav="profile" onClick={() => setMenuOpen((o) => !o)}>
               <span className="sc-avatar-img">{initials}</span>
@@ -149,14 +250,14 @@ export function SiteHeader({ active = "home", onStartTour }) {
                   <div className="nm">{fullName}</div>
                   <div className="em">{user?.email || "demo@travelbuddy.local"}</div>
                 </div>
-                <button className="sc-menu-item" onClick={() => toast("Trang Hồ sơ đang được thiết kế")}>
+                <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/profile"); }}>
                   <IconUser /> Hồ sơ của tôi
                   <span className="sc-menu-badge">{user?.level || "Explorer"}</span>
                 </button>
                 <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/my-trips"); }}>
                   <IconTrips /> Kế hoạch của tôi
                 </button>
-                <button className="sc-menu-item" onClick={() => toast("Wishlist đang được thiết kế")}>
+                <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/wishlist"); }}>
                   <IconHeart /> Wishlist của tôi
                 </button>
                 <button className="sc-menu-item danger" onClick={logout}>

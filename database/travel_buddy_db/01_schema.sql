@@ -18,6 +18,8 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- Drop theo thu tu phu thuoc de file co the chay lai sach trong dev.
 DROP VIEW IF EXISTS flights CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS saved_items CASCADE;
 DROP TABLE IF EXISTS data_refresh_jobs CASCADE;
 DROP TABLE IF EXISTS api_call_logs CASCADE;
 DROP TABLE IF EXISTS trip_expenses CASCADE;
@@ -62,6 +64,7 @@ CREATE TABLE users (
     full_name VARCHAR(120) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255),
+    google_sub VARCHAR(255),
     avatar_url TEXT,
     travel_preferences JSONB NOT NULL DEFAULT '{}',
     total_points INT NOT NULL DEFAULT 0,
@@ -556,8 +559,38 @@ CREATE TABLE community_comments (
     review_id UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
+    images JSONB NOT NULL DEFAULT '[]',
     parent_id UUID REFERENCES community_comments(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Mục đã lưu từ cộng đồng (đổ vào Wishlist) — xem 02_community_social.sql để biết chi tiết.
+CREATE TABLE saved_items (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    kind        VARCHAR(16) NOT NULL CHECK (kind IN ('post', 'comment', 'photo')),
+    review_id   UUID REFERENCES reviews(id) ON DELETE CASCADE,
+    comment_id  UUID REFERENCES community_comments(id) ON DELETE CASCADE,
+    image_url   TEXT,
+    note        TEXT,
+    snapshot    JSONB NOT NULL DEFAULT '{}',
+    dedup_key   TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, dedup_key)
+);
+
+-- Thông báo tương tác cộng đồng (helpful / comment / reply / save / system).
+CREATE TABLE notifications (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    actor_id    UUID REFERENCES users(id) ON DELETE SET NULL,
+    kind        VARCHAR(20) NOT NULL,
+    review_id   UUID REFERENCES reviews(id) ON DELETE CASCADE,
+    comment_id  UUID REFERENCES community_comments(id) ON DELETE CASCADE,
+    message     TEXT NOT NULL,
+    data        JSONB NOT NULL DEFAULT '{}',
+    is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE price_alerts (
@@ -661,6 +694,9 @@ CREATE INDEX idx_reviews_destination ON reviews(destination_id);
 CREATE INDEX idx_reviews_hotel ON reviews(hotel_id);
 CREATE INDEX idx_community_comments_review ON community_comments(review_id, created_at);
 CREATE INDEX idx_community_comments_parent ON community_comments(parent_id) WHERE parent_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL;
+CREATE INDEX idx_saved_items_user ON saved_items(user_id, created_at DESC);
+CREATE INDEX idx_notifications_user ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX idx_price_alerts_active ON price_alerts(user_id) WHERE is_active = TRUE;
 
 CREATE INDEX idx_destinations_fts ON destinations

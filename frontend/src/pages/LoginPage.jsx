@@ -1,6 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "../components/dialog";
+
+/* Tải script Google Identity Services một lần (dùng chung) */
+let _gisPromise = null;
+function loadGIS() {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (_gisPromise) return _gisPromise;
+  _gisPromise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true; s.defer = true;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error("Không tải được Google Sign-In"));
+    document.head.appendChild(s);
+  });
+  return _gisPromise;
+}
 
 /* ─────────────────────────────────────────────────
    CSS — injected once via <style>
@@ -626,8 +642,54 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [success, setSuccess]   = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleBtnRef = useRef(null);
 
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  /* Lưu phiên đăng nhập rồi chuyển hướng (dùng chung cho email + Google) */
+  const finishLogin = (data) => {
+    localStorage.setItem("tb_token", data.access_token);
+    localStorage.setItem("tb_user", JSON.stringify(data.user));
+    setSuccess(true);
+    setTimeout(() => { navigate("/"); }, 800);
+  };
+
+  /* Khởi tạo Google Sign-In nếu máy chủ đã cấu hình GOOGLE_CLIENT_ID */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const cfg = await fetch("/api/auth/config").then((r) => r.json());
+        const clientId = cfg?.google_client_id;
+        if (!clientId || cancelled) return;
+        await loadGIS();
+        if (cancelled) return;
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (resp) => {
+            try {
+              const res = await fetch("/api/auth/google", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ credential: resp.credential }),
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.detail || "Đăng nhập Google thất bại");
+              finishLogin(data);
+            } catch (err) { setError(err.message); }
+          },
+        });
+        if (googleBtnRef.current) {
+          window.google.accounts.id.renderButton(googleBtnRef.current, {
+            theme: "outline", size: "large", width: 320, text: "continue_with", shape: "rectangular",
+          });
+        }
+        setGoogleReady(true);
+      } catch { /* để nguyên nút fallback */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -831,15 +893,18 @@ export default function LoginPage() {
 
                 <div className="lp-div">HOẶC</div>
 
-                {/* google */}
-                <button
-                  type="button"
-                  className="lp-google"
-                  onClick={() => toast("Đăng nhập Google sẽ sớm ra mắt!")}
-                >
-                  <GoogleLogo />
-                  Tiếp tục với Google
-                </button>
+                {/* google — nút chính thức của Google (khi máy chủ đã cấu hình client id) */}
+                <div ref={googleBtnRef} style={{ display: googleReady ? "flex" : "none", justifyContent: "center" }} />
+                {!googleReady && (
+                  <button
+                    type="button"
+                    className="lp-google"
+                    onClick={() => toast("Đăng nhập Google chưa được cấu hình — thêm GOOGLE_CLIENT_ID vào máy chủ để bật.")}
+                  >
+                    <GoogleLogo />
+                    Tiếp tục với Google
+                  </button>
+                )}
               </form>
 
               <p className="lp-card-foot">

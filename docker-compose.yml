@@ -76,6 +76,10 @@ services:
       SEARXNG_URL: http://searxng:8080
       API_HOST:   0.0.0.0
       API_PORT:   "8000"
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      # Ảnh người dùng upload (cộng đồng) — phục vụ tĩnh qua /uploads
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,7 +110,9 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || exit 1"]
+      # 127.0.0.1 (không dùng "localhost" — trong container localhost resolve ra IPv6 ::1,
+      # mà nginx chỉ listen IPv4:80 → connection refused → unhealthy giả)
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/nginx-health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -144,6 +150,10 @@ services:
       REDIS_URL:  redis://:${REDIS_PASSWORD:-changeme_redis_pass}@redis:6379/0
       SEARXNG_URL: http://searxng:8080
     command: python -m src.queue.streams
+    # Worker không mở HTTP server, nên vô hiệu HEALTHCHECK kế thừa từ backend/Dockerfile
+    # (curl localhost:8000/health) — nếu không sẽ luôn báo unhealthy giả.
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -171,4 +181,6 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  uploads_data:
     driver: local

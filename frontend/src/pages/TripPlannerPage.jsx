@@ -346,10 +346,13 @@ export default function TripPlannerPage() {
   const [tripId, setTripId] = useState(() => draft?.tripId || Date.now());
   const [step, setStep] = useState(draft?.step || 1);
   const [destinations, setDestinations] = useState([]);
-  const [form, setForm] = useState(draft?.form || {
+  // Luôn merge form từ draft với mặc định → tránh thiếu field (vd prefs) khi draft
+  // đến từ nơi khác chỉ set { destName } (Wishlist → "Lập kế hoạch") gây crash render.
+  const FORM_DEFAULTS = {
     destSlug: "", destName: "", origin: "HAN", days: 3, startDate: todayStr(),
     style: "beach", prefs: [], travelers: 2, budget: "",
-  });
+  };
+  const [form, setForm] = useState({ ...FORM_DEFAULTS, ...(draft?.form || {}) });
   const [pois, setPois] = useState([]);
   const [loadingPois, setLoadingPois] = useState(false);
   const [activeCat, setActiveCat] = useState("all");
@@ -426,7 +429,7 @@ export default function TripPlannerPage() {
   /* ─── itinerary ops ─── */
   const addedPoiIds = useMemo(() => {
     const s = new Set();
-    Object.values(itinerary).forEach((arr) => arr.forEach((it) => it.poiId && s.add(it.poiId)));
+    Object.values(itinerary).forEach((arr) => Array.isArray(arr) && arr.forEach((it) => it && it.poiId && s.add(it.poiId)));
     return s;
   }, [itinerary]);
 
@@ -479,7 +482,7 @@ export default function TripPlannerPage() {
 
   const dayCost = (idx) => (itinerary[idx] || []).reduce((s, it) => s + (it.fee || 0), 0) * (Number(form.travelers) || 1);
   const totalCost = useMemo(() => Array.from({ length: Number(form.days) }).reduce((s, _, i) => s + dayCost(i), 0), [itinerary, form.days, form.travelers]);
-  const totalPlaces = useMemo(() => Object.values(itinerary).reduce((s, a) => s + a.length, 0), [itinerary]);
+  const totalPlaces = useMemo(() => Object.values(itinerary).reduce((s, a) => s + (Array.isArray(a) ? a.length : 0), 0), [itinerary]);
 
   /* ─── POI filter/sort ─── */
   const availableCats = useMemo(() => [...new Set(pois.map((p) => p.category))], [pois]);

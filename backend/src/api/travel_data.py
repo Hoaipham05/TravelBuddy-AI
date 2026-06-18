@@ -17,10 +17,12 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+import uuid as uuidlib
+
 import requests
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, UploadFile, File
 from pydantic import BaseModel, Field
 
 from src.api.auth import get_current_user, UserPublic
@@ -69,6 +71,47 @@ def _fetch_all(sql: str, params: dict | None = None) -> list[dict]:
 def _fetch_one(sql: str, params: dict | None = None) -> dict | None:
     rows = _fetch_all(sql, params)
     return rows[0] if rows else None
+
+
+def _execute(sql: str, params: dict | None = None) -> int:
+    """Chạy INSERT/UPDATE/DELETE không cần RETURNING. Trả số dòng bị ảnh hưởng.
+    (`with _connect()` của psycopg2 tự commit khi thoát block không lỗi.)"""
+    try:
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params or {})
+                return cur.rowcount
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Travel database unavailable: {exc}") from exc
+
+
+def _notify(user_id: str, actor: UserPublic | None, kind: str, message: str,
+            review_id: str | None = None, comment_id: str | None = None,
+            data: dict | None = None) -> None:
+    """Tạo một thông báo cho `user_id`. Bỏ qua nếu tự tương tác với chính mình.
+    Lỗi tạo thông báo không được làm hỏng hành động chính → nuốt lỗi."""
+    if not user_id:
+        return
+    if actor and str(actor.id) == str(user_id):
+        return
+    try:
+        _execute(
+            """
+            INSERT INTO notifications (user_id, actor_id, kind, review_id, comment_id, message, data)
+            VALUES (%(uid)s, %(actor)s, %(kind)s, %(rid)s, %(cid)s, %(msg)s, %(data)s::jsonb)
+            """,
+            {
+                "uid": user_id,
+                "actor": str(actor.id) if actor else None,
+                "kind": kind,
+                "rid": review_id,
+                "cid": comment_id,
+                "msg": message,
+                "data": json.dumps(data or {}),
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @router.get("/destinations")
@@ -871,7 +914,7 @@ def community_posts(
         "items": _fetch_all(
             f"""
             SELECT r.id, r.rating, r.content, r.images, r.trip_data, r.helpful_count, r.created_at,
-                   u.full_name AS author_name, u.level AS author_level, u.avatar_url AS author_avatar,
+                   u.id AS author_id, u.full_name AS author_name, u.level AS author_level, u.avatar_url AS author_avatar,
                    d.slug AS destination_slug, d.name AS destination_name,
                    (SELECT COUNT(*) FROM community_comments cc WHERE cc.review_id = r.id) AS comment_count
             FROM reviews r
@@ -917,6 +960,7 @@ def create_community_post(body: CommunityPostIn, user: UserPublic = Depends(get_
         },
     )
     row.update({
+        "author_id": str(user.id),
         "author_name": user.full_name,
         "author_level": user.level,
         "author_avatar": user.avatar_url,
@@ -926,15 +970,79 @@ def create_community_post(body: CommunityPostIn, user: UserPublic = Depends(get_
     return row
 
 
+def _post_snapshot(post: dict) -> dict:
+    """Snapshot denormalize của một bài chia sẻ để hiển thị trong Wishlist."""
+    imgs = post.get("images") or []
+    return {
+        "kind": "post",
+        "author_name": post.get("author_name"),
+        "destination_name": post.get("destination_name"),
+        "destination_slug": post.get("destination_slug"),
+        "excerpt": _excerpt(post.get("content")),
+        "image_url": imgs[0] if imgs else None,
+        "rating": post.get("rating"),
+        "trip_data": post.get("trip_data"),
+    }
+
+
 @router.post("/community/posts/{post_id}/helpful")
-def community_post_helpful(post_id: str):
-    row = _fetch_one(
-        "UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = %(id)s RETURNING helpful_count",
+def community_post_helpful(post_id: str, user: UserPublic = Depends(get_current_user)):
+    """Bấm 'Hữu ích' = tăng lượt + lưu bài vào Wishlist (idempotent theo user)."""
+    post = _fetch_one(
+        """
+        SELECT r.id, r.user_id, r.content, r.images, r.trip_data, r.rating,
+               d.slug AS destination_slug, d.name AS destination_name,
+               au.full_name AS author_name
+        FROM reviews r
+        JOIN users au ON au.id = r.user_id
+        LEFT JOIN destinations d ON d.id = r.destination_id
+        WHERE r.id = %(id)s
+        """,
         {"id": post_id},
     )
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # Lưu (idempotent) — chỉ tăng lượt + thông báo khi đây là lần đầu user này thấy hữu ích.
+    inserted = _fetch_one(
+        """
+        INSERT INTO saved_items (user_id, kind, review_id, snapshot, dedup_key)
+        VALUES (%(uid)s, 'post', %(rid)s, %(snap)s::jsonb, %(dedup)s)
+        ON CONFLICT (user_id, dedup_key) DO NOTHING
+        RETURNING id
+        """,
+        {"uid": str(user.id), "rid": post_id,
+         "snap": json.dumps(_post_snapshot(post)), "dedup": f"post:{post_id}"},
+    )
+    if inserted:
+        row = _fetch_one(
+            "UPDATE reviews SET helpful_count = helpful_count + 1 WHERE id = %(id)s RETURNING helpful_count",
+            {"id": post_id},
+        )
+        _notify(str(post["user_id"]), user, "helpful",
+                f"{user.full_name} thấy bài chia sẻ của bạn hữu ích", review_id=post_id)
+    else:
+        row = _fetch_one("SELECT helpful_count FROM reviews WHERE id = %(id)s", {"id": post_id})
+    return {"helpful_count": row["helpful_count"], "saved": True}
+
+
+@router.delete("/community/posts/{post_id}/helpful")
+def remove_community_post_helpful(post_id: str, user: UserPublic = Depends(get_current_user)):
+    """Bỏ 'Hữu ích' = giảm lượt + gỡ bài khỏi Wishlist (chỉ khi user này từng lưu)."""
+    removed = _execute(
+        "DELETE FROM saved_items WHERE user_id = %(uid)s AND dedup_key = %(dedup)s",
+        {"uid": str(user.id), "dedup": f"post:{post_id}"},
+    )
+    if removed:
+        row = _fetch_one(
+            "UPDATE reviews SET helpful_count = GREATEST(helpful_count - 1, 0) WHERE id = %(id)s RETURNING helpful_count",
+            {"id": post_id},
+        )
+    else:
+        row = _fetch_one("SELECT helpful_count FROM reviews WHERE id = %(id)s", {"id": post_id})
     if not row:
         raise HTTPException(status_code=404, detail="Post not found")
-    return {"helpful_count": row["helpful_count"]}
+    return {"helpful_count": row["helpful_count"], "saved": False}
 
 
 @router.get("/community/featured-destinations")
@@ -972,8 +1080,8 @@ def list_comments(post_id: str):
     return {
         "items": _fetch_all(
             """
-            SELECT c.id, c.content, c.created_at, c.parent_id,
-                   u.full_name AS author_name, u.avatar_url AS author_avatar
+            SELECT c.id, c.content, c.images, c.created_at, c.parent_id,
+                   u.id AS author_id, u.full_name AS author_name, u.avatar_url AS author_avatar
             FROM community_comments c
             JOIN users u ON u.id = c.user_id
             WHERE c.review_id = %(pid)s
@@ -985,22 +1093,311 @@ def list_comments(post_id: str):
 
 
 class CommentIn(BaseModel):
-    content: str = Field(..., min_length=1, max_length=1000)
+    content: str = Field(default="", max_length=1000)
     parent_id: str | None = None
+    images: list[str] = Field(default_factory=list)
 
 
 @router.post("/community/posts/{post_id}/comments")
 def add_comment(post_id: str, body: CommentIn, user: UserPublic = Depends(get_current_user)):
-    if not _fetch_one("SELECT 1 FROM reviews WHERE id = %(id)s", {"id": post_id}):
+    content = body.content.strip()
+    if not content and not body.images:
+        raise HTTPException(status_code=400, detail="Bình luận cần nội dung hoặc ảnh.")
+    post = _fetch_one("SELECT id, user_id FROM reviews WHERE id = %(id)s", {"id": post_id})
+    if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    parent = None
+    if body.parent_id:
+        parent = _fetch_one(
+            "SELECT id, user_id FROM community_comments WHERE id = %(id)s AND review_id = %(pid)s",
+            {"id": body.parent_id, "pid": post_id},
+        )
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+
     row = _fetch_one(
         """
-        INSERT INTO community_comments (review_id, user_id, content, parent_id)
-        VALUES (%(pid)s, %(uid)s, %(c)s, %(parent_id)s)
-        RETURNING id, content, created_at, parent_id
+        INSERT INTO community_comments (review_id, user_id, content, images, parent_id)
+        VALUES (%(pid)s, %(uid)s, %(c)s, %(imgs)s::jsonb, %(parent_id)s)
+        RETURNING id, content, images, created_at, parent_id
         """,
-        {"pid": post_id, "uid": str(user.id), "c": body.content.strip(),
+        {"pid": post_id, "uid": str(user.id), "c": content,
+         "imgs": json.dumps(body.images[:8]),
          "parent_id": body.parent_id if body.parent_id else None},
     )
-    row.update({"author_name": user.full_name, "author_avatar": user.avatar_url})
+    row.update({"author_id": str(user.id), "author_name": user.full_name, "author_avatar": user.avatar_url})
+
+    # Thông báo: trả lời → báo chủ bình luận cha; bình luận gốc → báo tác giả bài.
+    if parent:
+        _notify(str(parent["user_id"]), user, "reply",
+                f"{user.full_name} đã trả lời bình luận của bạn",
+                review_id=post_id, comment_id=str(row["id"]))
+    _notify(str(post["user_id"]), user, "comment",
+            f"{user.full_name} đã bình luận về bài chia sẻ của bạn",
+            review_id=post_id, comment_id=str(row["id"]))
     return row
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Upload ảnh (cộng đồng) — lưu file vào volume, phục vụ tĩnh qua /uploads
+# ─────────────────────────────────────────────────────────────────────────────
+
+_UPLOAD_DIR = os.getenv("UPLOAD_DIR", os.path.join(os.getcwd(), "uploads"))
+_ALLOWED_IMAGE_TYPES = {
+    "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif",
+}
+_MAX_UPLOAD_BYTES = 6 * 1024 * 1024  # 6MB (FE đã nén client-side trước khi gửi)
+
+
+@router.post("/uploads/image")
+async def upload_image(file: UploadFile = File(...), user: UserPublic = Depends(get_current_user)):
+    ext = _ALLOWED_IMAGE_TYPES.get((file.content_type or "").lower())
+    if not ext:
+        raise HTTPException(status_code=400, detail="Chỉ chấp nhận ảnh JPEG/PNG/WebP/GIF.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="File rỗng.")
+    if len(data) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Ảnh quá lớn (tối đa 6MB).")
+
+    os.makedirs(_UPLOAD_DIR, exist_ok=True)
+    fname = f"{uuidlib.uuid4().hex}{ext}"
+    try:
+        with open(os.path.join(_UPLOAD_DIR, fname), "wb") as fh:
+            fh.write(data)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="Không lưu được ảnh.") from exc
+
+    # URL đi qua proxy: FE dùng /api/uploads/<file>; backend phục vụ tại /uploads/<file>.
+    return {"url": f"/api/uploads/{fname}"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Lưu "hữu ích" từ cộng đồng → đổ vào Wishlist
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _excerpt(text: str | None, n: int = 220) -> str:
+    text = (text or "").strip()
+    return text if len(text) <= n else text[:n].rstrip() + "…"
+
+
+class SaveItemIn(BaseModel):
+    kind: str = Field(..., pattern="^(post|comment|photo)$")
+    review_id: str
+    comment_id: str | None = None
+    image_url: str | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/community/saved")
+def save_item(body: SaveItemIn, user: UserPublic = Depends(get_current_user)):
+    post = _fetch_one(
+        """
+        SELECT r.id, r.user_id, r.content, r.images, r.trip_data, r.rating,
+               d.slug AS destination_slug, d.name AS destination_name,
+               au.full_name AS author_name
+        FROM reviews r
+        JOIN users au ON au.id = r.user_id
+        LEFT JOIN destinations d ON d.id = r.destination_id
+        WHERE r.id = %(id)s
+        """,
+        {"id": body.review_id},
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    comment = None
+    if body.kind == "comment":
+        if not body.comment_id:
+            raise HTTPException(status_code=400, detail="Thiếu comment_id.")
+        comment = _fetch_one(
+            """
+            SELECT c.id, c.user_id, c.content, c.images, u.full_name AS author_name
+            FROM community_comments c JOIN users u ON u.id = c.user_id
+            WHERE c.id = %(id)s AND c.review_id = %(pid)s
+            """,
+            {"id": body.comment_id, "pid": body.review_id},
+        )
+        if not comment:
+            raise HTTPException(status_code=404, detail="Comment not found")
+
+    # dedup_key: mỗi (bài) / (bình luận) / (ảnh cụ thể) chỉ lưu 1 lần
+    if body.kind == "post":
+        dedup = f"post:{body.review_id}"
+    elif body.kind == "comment":
+        dedup = f"comment:{body.comment_id}"
+    else:
+        if not body.image_url:
+            raise HTTPException(status_code=400, detail="Thiếu image_url.")
+        dedup = f"photo:{body.review_id}:{body.image_url}"
+
+    # snapshot denormalize để Wishlist render độc lập
+    src = comment if body.kind == "comment" else post
+    snapshot = {
+        "kind": body.kind,
+        "author_name": src.get("author_name") or post.get("author_name"),
+        "destination_name": post.get("destination_name"),
+        "destination_slug": post.get("destination_slug"),
+        "excerpt": _excerpt(src.get("content")),
+        "image_url": body.image_url,
+        "rating": post.get("rating"),
+    }
+    if body.kind == "post":
+        snapshot["trip_data"] = post.get("trip_data")
+        imgs = post.get("images") or []
+        if not body.image_url and imgs:
+            snapshot["image_url"] = imgs[0]
+
+    row = _fetch_one(
+        """
+        INSERT INTO saved_items (user_id, kind, review_id, comment_id, image_url, note, snapshot, dedup_key)
+        VALUES (%(uid)s, %(kind)s, %(rid)s, %(cid)s, %(img)s, %(note)s, %(snap)s::jsonb, %(dedup)s)
+        ON CONFLICT (user_id, dedup_key) DO UPDATE SET note = COALESCE(EXCLUDED.note, saved_items.note)
+        RETURNING id, kind, review_id, comment_id, image_url, note, snapshot, created_at
+        """,
+        {"uid": str(user.id), "kind": body.kind, "rid": body.review_id,
+         "cid": body.comment_id, "img": body.image_url, "note": body.note,
+         "snap": json.dumps(snapshot), "dedup": dedup},
+    )
+
+    # Báo cho tác giả nội dung được lưu. Với bài chia sẻ, "lưu" = "thấy hữu ích".
+    target_author = comment["user_id"] if comment else post["user_id"]
+    if body.kind == "post":
+        msg = f"{user.full_name} thấy bài chia sẻ của bạn hữu ích"
+    else:
+        label = {"comment": "bình luận", "photo": "tấm ảnh"}[body.kind]
+        msg = f"{user.full_name} đã lưu {label} của bạn vào wishlist"
+    _notify(str(target_author), user, "save", msg,
+            review_id=body.review_id, comment_id=body.comment_id)
+    return row
+
+
+@router.get("/community/saved")
+def list_saved(user: UserPublic = Depends(get_current_user)):
+    return {
+        "items": _fetch_all(
+            """
+            SELECT id, kind, review_id, comment_id, image_url, note, snapshot, created_at
+            FROM saved_items WHERE user_id = %(uid)s
+            ORDER BY created_at DESC
+            """,
+            {"uid": str(user.id)},
+        )
+    }
+
+
+@router.delete("/community/saved/{item_id}")
+def delete_saved(item_id: str, user: UserPublic = Depends(get_current_user)):
+    n = _execute(
+        "DELETE FROM saved_items WHERE id = %(id)s AND user_id = %(uid)s",
+        {"id": item_id, "uid": str(user.id)},
+    )
+    if not n:
+        raise HTTPException(status_code=404, detail="Saved item not found")
+    return {"deleted": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Thông báo
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/notifications")
+def list_notifications(
+    user: UserPublic = Depends(get_current_user),
+    limit: int = Query(default=30, ge=1, le=100),
+):
+    items = _fetch_all(
+        """
+        SELECT n.id, n.kind, n.message, n.review_id, n.comment_id, n.data, n.is_read, n.created_at,
+               a.full_name AS actor_name, a.avatar_url AS actor_avatar
+        FROM notifications n
+        LEFT JOIN users a ON a.id = n.actor_id
+        WHERE n.user_id = %(uid)s
+        ORDER BY n.created_at DESC
+        LIMIT %(limit)s
+        """,
+        {"uid": str(user.id), "limit": limit},
+    )
+    unread = _fetch_one(
+        "SELECT COUNT(*) AS c FROM notifications WHERE user_id = %(uid)s AND is_read = FALSE",
+        {"uid": str(user.id)},
+    )
+    return {"items": items, "unread": int(unread["c"]) if unread else 0}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Hồ sơ người dùng — cập nhật của tôi + xem công khai (sở thích du lịch)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ProfileUpdateIn(BaseModel):
+    full_name: str | None = Field(default=None, max_length=120)
+    bio: str | None = Field(default=None, max_length=500)
+    phone: str | None = Field(default=None, max_length=40)
+    location: str | None = Field(default=None, max_length=120)
+    birthday: str | None = Field(default=None, max_length=20)
+    interests: list[str] | None = None
+
+
+@router.put("/profile")
+def update_profile(body: ProfileUpdateIn, user: UserPublic = Depends(get_current_user)):
+    """Lưu hồ sơ của tôi. Thông tin cá nhân + sở thích cất trong users.travel_preferences."""
+    prefs: dict[str, Any] = {}
+    for key in ("bio", "phone", "location", "birthday", "interests"):
+        val = getattr(body, key)
+        if val is not None:
+            prefs[key] = val
+    row = _fetch_one(
+        """
+        UPDATE users
+           SET full_name = COALESCE(%(name)s, full_name),
+               travel_preferences = travel_preferences || %(prefs)s::jsonb,
+               updated_at = NOW()
+         WHERE id = %(id)s
+     RETURNING id, full_name, email, avatar_url, travel_preferences, total_points, level
+        """,
+        {"name": body.full_name.strip() if body.full_name else None,
+         "prefs": json.dumps(prefs), "id": str(user.id)},
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row
+
+
+@router.get("/users/{user_id}")
+def public_user_profile(user_id: str):
+    """Hồ sơ công khai — để người khác xem sở thích du lịch của một thành viên."""
+    try:
+        uuidlib.UUID(user_id)
+    except (ValueError, AttributeError):
+        raise HTTPException(status_code=404, detail="User not found")
+    row = _fetch_one(
+        """
+        SELECT u.id, u.full_name, u.avatar_url, u.level, u.travel_preferences, u.created_at,
+               (SELECT COUNT(*) FROM reviews r WHERE r.user_id = u.id) AS post_count
+        FROM users u WHERE u.id = %(id)s
+        """,
+        {"id": user_id},
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return row
+
+
+class MarkReadIn(BaseModel):
+    ids: list[str] | None = None  # None = đánh dấu đã đọc tất cả
+
+
+@router.post("/notifications/read")
+def mark_notifications_read(body: MarkReadIn, user: UserPublic = Depends(get_current_user)):
+    if body.ids:
+        _execute(
+            "UPDATE notifications SET is_read = TRUE WHERE user_id = %(uid)s AND id = ANY(%(ids)s::uuid[])",
+            {"uid": str(user.id), "ids": body.ids},
+        )
+    else:
+        _execute(
+            "UPDATE notifications SET is_read = TRUE WHERE user_id = %(uid)s AND is_read = FALSE",
+            {"uid": str(user.id)},
+        )
+    return {"ok": True}

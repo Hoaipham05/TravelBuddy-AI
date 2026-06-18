@@ -165,6 +165,22 @@ async def get_current_user(
     return UserPublic.model_validate(user)
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> UserPublic | None:
+    """Như get_current_user nhưng KHÔNG raise khi thiếu/lỗi token — trả None.
+    Dùng cho endpoint công khai muốn cá nhân hoá nếu có đăng nhập (vd: nút Hữu ích
+    vẫn chạy ẩn danh, nhưng nếu đăng nhập thì tạo thông báo cho tác giả)."""
+    if not credentials:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        user = _get_user_by_id(str(payload["sub"]))
+        return UserPublic.model_validate(user) if user else None
+    except Exception:  # noqa: BLE001 — token hỏng/hết hạn → coi như ẩn danh
+        return None
+
+
 @router.post("/login", response_model=LoginResponse, summary="Đăng nhập")
 def login(body: LoginRequest):
     try:
@@ -198,3 +214,109 @@ def login(body: LoginRequest):
 @router.get("/me", response_model=UserPublic, summary="Thông tin tài khoản hiện tại")
 async def me(current_user: UserPublic = Depends(get_current_user)):
     return current_user
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Đăng nhập bằng Google (OAuth 2.0 — Google Identity Services)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _google_client_id() -> str:
+    return os.getenv("GOOGLE_CLIENT_ID", "").strip()
+
+
+@router.get("/config", summary="Cấu hình công khai cho trang đăng nhập")
+def auth_config():
+    """Frontend gọi để biết có bật đăng nhập Google không và lấy client_id để init GIS."""
+    return {"google_client_id": _google_client_id() or None}
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(..., min_length=10)  # ID token (JWT) từ Google Identity Services
+
+
+def _upsert_google_user(sub: str, email: str, full_name: str, avatar_url: str | None) -> dict[str, Any]:
+    """Tìm user theo google_sub → email; tạo mới nếu chưa có; liên kết nếu trùng email."""
+    with _database_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, full_name, email, avatar_url, travel_preferences, total_points, level
+                FROM users WHERE google_sub = %s LIMIT 1
+                """,
+                (sub,),
+            )
+            row = cur.fetchone()
+            if row:
+                return _clean(dict(row))
+
+            # Chưa liên kết google_sub — thử khớp theo email (tài khoản đã tạo trước đó)
+            cur.execute(
+                """
+                UPDATE users
+                   SET google_sub = %s,
+                       avatar_url = COALESCE(avatar_url, %s),
+                       updated_at = NOW()
+                 WHERE lower(email) = lower(%s)
+             RETURNING id, full_name, email, avatar_url, travel_preferences, total_points, level
+                """,
+                (sub, avatar_url, email),
+            )
+            row = cur.fetchone()
+            if row:
+                conn.commit()
+                return _clean(dict(row))
+
+            # Tạo tài khoản mới (không mật khẩu — chỉ đăng nhập qua Google)
+            cur.execute(
+                """
+                INSERT INTO users (full_name, email, google_sub, avatar_url)
+                VALUES (%s, %s, %s, %s)
+             RETURNING id, full_name, email, avatar_url, travel_preferences, total_points, level
+                """,
+                (full_name or email.split("@")[0], email, sub, avatar_url),
+            )
+            row = cur.fetchone()
+            conn.commit()
+            return _clean(dict(row))
+
+
+@router.post("/google", response_model=LoginResponse, summary="Đăng nhập bằng Google")
+def google_login(body: GoogleLoginRequest):
+    client_id = _google_client_id()
+    if not client_id:
+        raise HTTPException(status_code=503, detail="Đăng nhập Google chưa được cấu hình trên máy chủ.")
+
+    # Verify id_token với Google (kiểm tra chữ ký + audience = client_id của ta)
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        claims = google_id_token.verify_oauth2_token(
+            body.credential, google_requests.Request(), client_id
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Google token verification failed: %s", exc)
+        raise HTTPException(status_code=401, detail="Token Google không hợp lệ.") from exc
+
+    if not claims.get("email_verified", False):
+        raise HTTPException(status_code=401, detail="Email Google chưa được xác thực.")
+
+    sub = str(claims["sub"])
+    email = (claims.get("email") or "").strip().lower()
+    full_name = claims.get("name") or ""
+    avatar_url = claims.get("picture")
+
+    try:
+        user = _upsert_google_user(sub, email, full_name, avatar_url)
+        token = create_access_token(str(user["id"]), user["email"])
+    except AuthConfigurationError as exc:
+        raise HTTPException(status_code=500, detail="Auth service is not configured.") from exc
+    except psycopg2.Error as exc:
+        logger.exception("Database error during Google login")
+        raise HTTPException(status_code=503, detail="Auth database unavailable.") from exc
+
+    return LoginResponse(
+        access_token=token,
+        expires_in=access_token_expires_in_seconds(),
+        user=UserPublic.model_validate(user),
+    )

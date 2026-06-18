@@ -31,6 +31,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.cache.session import RedisClient, SessionStore, ResultStore, RateLimiter
@@ -77,6 +78,13 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(travel_data_router)
+
+# Ảnh người dùng upload (cộng đồng) — phục vụ tĩnh tại /uploads.
+# Qua proxy: FE gọi /api/uploads/<file> → nginx/Vite strip /api → /uploads/<file>.
+import os as _os
+_UPLOAD_DIR = _os.getenv("UPLOAD_DIR", _os.path.join(_os.getcwd(), "uploads"))
+_os.makedirs(_UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_UPLOAD_DIR), name="uploads")
 
 _producer      = JobProducer()
 _result_store  = ResultStore()

@@ -136,6 +136,68 @@ body { font-family:'Inter',-apple-system,sans-serif; background:#F0F9FF; color:#
 @keyframes cm-spin { to { transform:rotate(360deg); } }
 .cm-empty .ic { font-size:2.5rem; }
 
+/* ── ảnh: composer + thư viện bài + lightbox ── */
+.cm-photo-btn { display:inline-flex; align-items:center; gap:0.35rem; border:1.5px solid var(--border); background:#fff; border-radius:9px; padding:0.4rem 0.7rem; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.8125rem; color:var(--ocean); cursor:pointer; transition:all 0.15s; }
+.cm-photo-btn:hover { border-color:var(--sky); background:#F0F9FF; }
+.cm-thumbs { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.6rem; }
+.cm-thumb { position:relative; width:74px; height:74px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:#F1F5F9 center/cover no-repeat; }
+.cm-thumb .x { position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(15,23,42,0.7); color:#fff; font-size:0.75rem; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.cm-thumb.up { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:0.7rem; }
+.cm-thumb .mini-spin { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--sky); border-radius:50%; animation:cm-spin 0.7s linear infinite; }
+
+.cm-gallery { display:grid; gap:6px; margin-bottom:0.75rem; border-radius:12px; overflow:hidden; }
+.cm-gallery.n1 { grid-template-columns:1fr; }
+.cm-gallery.n2 { grid-template-columns:1fr 1fr; }
+.cm-gallery.n3, .cm-gallery.n4 { grid-template-columns:1fr 1fr 1fr; }
+.cm-gphoto { position:relative; width:100%; aspect-ratio:4/3; background:#E2E8F0 center/cover no-repeat; cursor:zoom-in; }
+.cm-gallery.n1 .cm-gphoto { aspect-ratio:16/9; }
+.cm-gphoto .more { position:absolute; inset:0; background:rgba(15,23,42,0.55); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Nunito',sans-serif; font-weight:900; font-size:1.5rem; }
+.cm-gphoto .save-mini { position:absolute; bottom:6px; right:6px; border:none; border-radius:100px; padding:0.3rem 0.6rem; background:rgba(255,255,255,0.92); color:var(--deep); font-family:'Nunito',sans-serif; font-weight:800; font-size:0.7rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.25rem; opacity:0; transition:opacity 0.15s; }
+.cm-gphoto:hover .save-mini { opacity:1; }
+.cm-gphoto .save-mini.saved { opacity:1; background:#FEF3C7; color:#B45309; }
+
+.cm-cmt-imgs { display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.4rem; }
+.cm-cmt-imgs img { width:64px; height:64px; object-fit:cover; border-radius:8px; cursor:zoom-in; border:1px solid var(--border); }
+.cm-cmt-save { border:none; background:none; font-size:0.6875rem; font-weight:700; color:var(--muted); cursor:pointer; padding:0.15rem 0.45rem; border-radius:6px; transition:all 0.12s; }
+.cm-cmt-save:hover { color:var(--amber); background:#FFFBEB; }
+.cm-cmt-save.saved { color:#B45309; }
+.cm-cmt-photo-btn { flex-shrink:0; border:none; background:none; font-size:1.1rem; cursor:pointer; padding:0 0.2rem; opacity:0.7; }
+.cm-cmt-photo-btn:hover { opacity:1; }
+
+/* lightbox */
+.cm-lb { position:fixed; inset:0; z-index:400; background:rgba(15,23,42,0.92); display:flex; align-items:center; justify-content:center; padding:2rem; animation:cm-fade 0.18s; }
+@keyframes cm-fade { from { opacity:0; } to { opacity:1; } }
+.cm-lb img { max-width:92vw; max-height:80vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+.cm-lb-x { position:absolute; top:1.25rem; right:1.5rem; width:42px; height:42px; border:none; border-radius:50%; background:rgba(255,255,255,0.15); color:#fff; font-size:1.5rem; cursor:pointer; }
+.cm-lb-bar { position:absolute; bottom:1.5rem; left:50%; transform:translateX(-50%); display:flex; gap:0.6rem; }
+.cm-lb-save { border:none; border-radius:100px; padding:0.6rem 1.2rem; background:#fff; color:var(--deep); font-family:'Nunito',sans-serif; font-weight:800; font-size:0.875rem; cursor:pointer; display:inline-flex; align-items:center; gap:0.4rem; }
+.cm-lb-save.saved { background:#FEF3C7; color:#B45309; }
+.cm-lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:46px; height:46px; border:none; border-radius:50%; background:rgba(255,255,255,0.15); color:#fff; font-size:1.5rem; cursor:pointer; }
+.cm-lb-nav.prev { left:1.5rem; } .cm-lb-nav.next { right:1.5rem; }
+
+/* tên/avatar tác giả bấm được → mở hồ sơ */
+.cm-author { cursor:pointer; }
+.cm-author:hover { text-decoration:underline; }
+.cm-avatar.cm-author:hover, .cm-cmt-av.cm-author:hover { text-decoration:none; filter:brightness(1.05); }
+
+/* modal hồ sơ công khai */
+.cm-pm { position:fixed; inset:0; z-index:400; background:rgba(15,23,42,0.55); display:flex; align-items:center; justify-content:center; padding:1.5rem; animation:cm-fade 0.18s; }
+.cm-pm-card { width:100%; max-width:380px; background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 24px 60px rgba(15,23,42,0.3); animation:cm-pm-in 0.2s ease; }
+@keyframes cm-pm-in { from { opacity:0; transform:translateY(10px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+.cm-pm-banner { height:92px; background:linear-gradient(125deg,var(--deepest),var(--ocean) 60%,var(--sky)); position:relative; }
+.cm-pm-x { position:absolute; top:0.6rem; right:0.7rem; width:32px; height:32px; border:none; border-radius:50%; background:rgba(255,255,255,0.25); color:#fff; font-size:1.2rem; cursor:pointer; }
+.cm-pm-av { width:84px; height:84px; border-radius:50%; border:4px solid #fff; margin:-46px auto 0; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'Nunito',sans-serif; font-weight:900; font-size:2rem; background-size:cover; background-position:center; }
+.cm-pm-body { padding:0.5rem 1.5rem 1.5rem; text-align:center; }
+.cm-pm-name { font-family:'Nunito',sans-serif; font-weight:900; font-size:1.25rem; margin-top:0.5rem; }
+.cm-pm-meta { font-size:0.8125rem; color:var(--muted); margin-top:0.2rem; }
+.cm-pm-sec { text-align:left; margin-top:1.1rem; }
+.cm-pm-sec h4 { font-family:'Nunito',sans-serif; font-weight:800; font-size:0.8125rem; color:var(--deep); margin-bottom:0.5rem; }
+.cm-pm-bio { font-size:0.875rem; color:#334155; line-height:1.55; background:#F8FAFC; border-radius:10px; padding:0.6rem 0.8rem; }
+.cm-pm-tags { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.cm-pm-tag { display:inline-flex; align-items:center; gap:0.3rem; padding:0.35rem 0.7rem; border-radius:100px; background:#EFF8FF; border:1px solid #BAE6FD; color:var(--deep); font-size:0.75rem; font-weight:700; }
+.cm-pm-empty { font-size:0.8125rem; color:var(--muted); font-style:italic; }
+.cm-pm-loading { padding:2rem; text-align:center; color:var(--muted); }
+
 @media (max-width:860px) {
   .cm-main { grid-template-columns:1fr; }
   .cm-side { position:static; flex-direction:column-reverse; }
@@ -166,6 +228,40 @@ function getUser() { try { return JSON.parse(localStorage.getItem("tb_user") || 
 function getToken() { return localStorage.getItem("tb_token") || sessionStorage.getItem("tb_token"); }
 function getLiked() { try { return new Set(JSON.parse(localStorage.getItem("tb_liked_posts") || "[]")); } catch { return new Set(); } }
 function getSavedTrips() { try { const a = JSON.parse(localStorage.getItem("tb_saved_trips") || "[]"); return Array.isArray(a) ? a : []; } catch { return []; } }
+
+/* Nén & resize ảnh phía client (cạnh dài tối đa 1600px, JPEG ~0.82) trước khi upload */
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith("image/")) { reject(new Error("not an image")); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width: w, height: h } = img;
+      if (Math.max(w, h) > maxDim) { const r = maxDim / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r); }
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cv.getContext("2d").drawImage(img, 0, 0, w, h);
+      const type = file.type === "image/png" ? "image/png" : "image/jpeg";
+      cv.toBlob((blob) => blob ? resolve(new File([blob], file.name.replace(/\.\w+$/, type === "image/png" ? ".png" : ".jpg"), { type })) : reject(new Error("toBlob failed")), type, quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load failed")); };
+    img.src = url;
+  });
+}
+
+/* Upload 1 ảnh → trả URL (/api/uploads/..). Tự nén trước. */
+async function uploadImage(file) {
+  const token = getToken();
+  let toSend = file;
+  try { toSend = await compressImage(file); } catch { /* dùng file gốc nếu nén lỗi */ }
+  const fd = new FormData();
+  fd.append("file", toSend);
+  const res = await fetch("/api/travel/uploads/image", {
+    method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {}, body: fd,
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Upload thất bại"); }
+  return (await res.json()).url;
+}
 
 /* Trích snapshot lịch trình gọn để đính kèm bài viết */
 function tripSnapshot(t) {
@@ -234,6 +330,66 @@ function printTripPdf(trip) {
 const IconArrow = () => (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>);
 const IconPdf = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" /></svg>);
 
+/* nhãn sở thích du lịch (khớp với ProfilePage) */
+const INTEREST_LABELS = {
+  beach: "🏖️ Biển đảo", mountain: "⛰️ Núi rừng", food: "🍜 Ẩm thực", culture: "🏛️ Văn hoá",
+  adventure: "🧗 Phiêu lưu", photo: "📸 Sống ảo", luxury: "✨ Nghỉ dưỡng", budget: "💰 Tiết kiệm",
+  nightlife: "🌃 Về đêm", nature: "🌿 Thiên nhiên",
+};
+
+/* Modal hồ sơ công khai của một thành viên — xem sở thích du lịch */
+function ProfileModal({ userId, onClose }) {
+  const [data, setData] = useState(undefined);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/travel/users/${userId}`).then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (alive) setData(d); }).catch(() => { if (alive) setData(null); });
+    return () => { alive = false; };
+  }, [userId]);
+
+  const prefs = data?.travel_preferences || {};
+  const interests = Array.isArray(prefs.interests) ? prefs.interests : [];
+
+  return (
+    <div className="cm-pm" onClick={onClose}>
+      <div className="cm-pm-card" onClick={(e) => e.stopPropagation()}>
+        <div className="cm-pm-banner"><button className="cm-pm-x" onClick={onClose}>×</button></div>
+        {data === undefined ? (
+          <div className="cm-pm-loading">Đang tải hồ sơ…</div>
+        ) : !data ? (
+          <div className="cm-pm-loading">Không tìm thấy hồ sơ.</div>
+        ) : (
+          <>
+            <div className="cm-pm-av" style={data.avatar_url
+              ? { backgroundImage: `url(${data.avatar_url})` }
+              : { background: avGrad(data.full_name) }}>
+              {!data.avatar_url && initials(data.full_name)}
+            </div>
+            <div className="cm-pm-body">
+              <div className="cm-pm-name">{data.full_name}</div>
+              <div className="cm-pm-meta">{data.post_count > 0 ? `${data.post_count} bài chia sẻ` : "Thành viên cộng đồng"}</div>
+
+              {prefs.bio && (
+                <div className="cm-pm-sec"><h4>Giới thiệu</h4><div className="cm-pm-bio">{prefs.bio}</div></div>
+              )}
+              <div className="cm-pm-sec">
+                <h4>🎯 Sở thích du lịch</h4>
+                {interests.length ? (
+                  <div className="cm-pm-tags">
+                    {interests.map((k) => <span key={k} className="cm-pm-tag">{INTEREST_LABELS[k] || k}</span>)}
+                  </div>
+                ) : (
+                  <div className="cm-pm-empty">Thành viên này chưa cập nhật sở thích.</div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CommunityPage() {
   const navigate = useNavigate();
   const user = getUser();
@@ -251,6 +407,13 @@ export default function CommunityPage() {
   const [draft, setDraft] = useState("");
   const [rating, setRating] = useState(5);
   const [posting, setPosting] = useState(false);
+  const [photos, setPhotos] = useState([]);        // ảnh đính kèm bài (URL đã upload)
+  const [uploading, setUploading] = useState(0);    // số ảnh đang upload
+
+  /* lightbox xem ảnh: { imgs:[], idx } */
+  const [lightbox, setLightbox] = useState(null);
+  /* modal hồ sơ công khai của tác giả */
+  const [profileId, setProfileId] = useState(null);
 
   /* bình luận */
   const [openC, setOpenC] = useState(() => new Set());
@@ -296,7 +459,35 @@ export default function CommunityPage() {
   }, [sort, filterDest]);
   useEffect(() => { load(); }, [load]);
 
+  /* nạp danh sách "hữu ích" đã lưu → đánh dấu các bài đã lưu (đồng bộ đa thiết bị) */
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/travel/community/saved", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : { items: [] })
+      .then((d) => {
+        const ids = (d.items || []).filter((it) => it.kind === "post").map((it) => it.review_id);
+        if (ids.length) setLiked((prev) => { const n = new Set(prev); ids.forEach((id) => n.add(id)); return n; });
+      }).catch(() => {});
+  }, []);
+
   const selectedTrip = savedTrips.find((t) => String(t.id) === String(tripId));
+
+  /* upload nhiều ảnh cho composer */
+  const onPickPhotos = async (e) => {
+    const files = [...(e.target.files || [])]; e.target.value = "";
+    if (!files.length) return;
+    const room = Math.max(0, 6 - photos.length);
+    if (!room) { toast("Tối đa 6 ảnh mỗi bài"); return; }
+    setUploading((n) => n + Math.min(room, files.length));
+    for (const f of files.slice(0, room)) {
+      try { const url = await uploadImage(f); setPhotos((p) => [...p, url]); }
+      catch (err) { toast(err.message || "Upload ảnh thất bại"); }
+      finally { setUploading((n) => Math.max(0, n - 1)); }
+    }
+  };
+
+  const openProfile = (uid) => { if (uid) setProfileId(uid); };
 
   const submitPost = async () => {
     const content = draft.trim();
@@ -312,13 +503,13 @@ export default function CommunityPage() {
       const res = await fetch("/api/travel/community/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ destination_slug: destSlug, content, rating, trip_data: snap }),
+        body: JSON.stringify({ destination_slug: destSlug, content, rating, trip_data: snap, images: photos }),
       });
       if (res.status === 401) { toast("Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại."); navigate("/login"); return; }
       if (!res.ok) throw new Error();
       const post = await res.json();
       if (!filterDest || filterDest === post.destination_slug) setPosts((p) => [post, ...p]);
-      setDraft(""); setRating(5);
+      setDraft(""); setRating(5); setPhotos([]);
       toast("✅ Đã chia sẻ lịch trình lên cộng đồng!");
     } catch {
       toast("Đăng bài thất bại. Thử lại sau.");
@@ -327,12 +518,38 @@ export default function CommunityPage() {
     }
   };
 
+  /* "Hữu ích" — toggle bật/tắt như thả cảm xúc. Bật = lưu vào Wishlist, tắt = gỡ. */
   const toggleHelpful = async (post) => {
-    if (liked.has(post.id)) return;
-    setPosts((p) => p.map((x) => x.id === post.id ? { ...x, helpful_count: (x.helpful_count || 0) + 1 } : x));
-    const next = new Set(liked); next.add(post.id); setLiked(next);
+    const token = getToken();
+    if (!token) { toast("Đăng nhập để dùng tính năng này"); navigate("/login"); return; }
+    const wasLiked = liked.has(post.id);
+    const delta = wasLiked ? -1 : 1;
+    // optimistic
+    setPosts((p) => p.map((x) => x.id === post.id ? { ...x, helpful_count: Math.max(0, (x.helpful_count || 0) + delta) } : x));
+    const next = new Set(liked);
+    if (wasLiked) next.delete(post.id); else next.add(post.id);
+    setLiked(next);
     localStorage.setItem("tb_liked_posts", JSON.stringify([...next]));
-    try { await fetch(`/api/travel/community/posts/${post.id}/helpful`, { method: "POST" }); } catch { /* ignore */ }
+    try {
+      const res = await fetch(`/api/travel/community/posts/${post.id}/helpful`, {
+        method: wasLiked ? "DELETE" : "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) { toast("Phiên đăng nhập đã hết hạn"); navigate("/login"); return; }
+      if (!res.ok) throw new Error();
+      const d = await res.json().catch(() => ({}));
+      if (typeof d.helpful_count === "number") {
+        setPosts((p) => p.map((x) => x.id === post.id ? { ...x, helpful_count: d.helpful_count } : x));
+      }
+    } catch {
+      // rollback
+      setPosts((p) => p.map((x) => x.id === post.id ? { ...x, helpful_count: Math.max(0, (x.helpful_count || 0) - delta) } : x));
+      const back = new Set(liked);
+      if (wasLiked) back.add(post.id); else back.delete(post.id);
+      setLiked(back);
+      localStorage.setItem("tb_liked_posts", JSON.stringify([...back]));
+      toast("Có lỗi, thử lại sau");
+    }
   };
 
   const toggleComments = (pid) => {
@@ -415,13 +632,29 @@ export default function CommunityPage() {
                           ))}
                         </select>
                       </div>
+                      {(photos.length > 0 || uploading > 0) && (
+                        <div className="cm-thumbs">
+                          {photos.map((url, i) => (
+                            <div key={url} className="cm-thumb" style={{ backgroundImage: `url(${url})` }}>
+                              <button className="x" onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))} title="Gỡ ảnh">×</button>
+                            </div>
+                          ))}
+                          {Array.from({ length: uploading }).map((_, i) => (
+                            <div key={"up" + i} className="cm-thumb up"><span className="mini-spin" /></div>
+                          ))}
+                        </div>
+                      )}
                       <div className="cm-comp-tools">
                         <div className="cm-rate" title="Đánh giá chuyến đi">
                           {[1, 2, 3, 4, 5].map((n) => (
                             <span key={n} className={"st" + (n <= rating ? " on" : "")} onClick={() => setRating(n)}>★</span>
                           ))}
                         </div>
-                        <button className="cm-post-btn" onClick={submitPost} disabled={posting}>{posting ? "Đang đăng…" : "Chia sẻ"}</button>
+                        <label className="cm-photo-btn">
+                          📷 Thêm ảnh
+                          <input type="file" accept="image/*" multiple hidden onChange={onPickPhotos} />
+                        </label>
+                        <button className="cm-post-btn" onClick={submitPost} disabled={posting || uploading > 0}>{posting ? "Đang đăng…" : "Chia sẻ"}</button>
                       </div>
                     </>
                   )}
@@ -453,9 +686,10 @@ export default function CommunityPage() {
               return (
                 <div key={p.id} className="cm-post">
                   <div className="cm-post-head">
-                    <div className="cm-avatar" style={{ background: avGrad(p.author_name), width: 40, height: 40 }}>{initials(p.author_name)}</div>
+                    <div className="cm-avatar cm-author" style={{ background: avGrad(p.author_name), width: 40, height: 40 }}
+                      onClick={() => openProfile(p.author_id)} title="Xem hồ sơ">{initials(p.author_name)}</div>
                     <div>
-                      <div className="nm">{p.author_name}{p.author_level && <span className="cm-lv">{p.author_level}</span>}</div>
+                      <div className="nm"><span className="cm-author" onClick={() => openProfile(p.author_id)}>{p.author_name}</span></div>
                       <div className="sub">
                         {timeAgo(p.created_at)}
                         {p.destination_name && <>· <span className="cm-dest" onClick={() => setFilterDest(p.destination_slug)}>📍 {p.destination_name}</span></>}
@@ -465,6 +699,17 @@ export default function CommunityPage() {
                   </div>
 
                   <div className="cm-post-body">{p.content}</div>
+
+                  {Array.isArray(p.images) && p.images.length > 0 && (
+                    <div className={`cm-gallery n${Math.min(p.images.length, 4)}`}>
+                      {p.images.slice(0, 4).map((url, i) => (
+                        <div key={url} className="cm-gphoto" style={{ backgroundImage: `url(${url})` }}
+                          onClick={() => setLightbox({ imgs: p.images, idx: i })}>
+                          {i === 3 && p.images.length > 4 && <div className="more">+{p.images.length - 4}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {trip && (
                     <div className="cm-trip">
@@ -478,7 +723,8 @@ export default function CommunityPage() {
                   )}
 
                   <div className="cm-post-foot">
-                    <button className={"cm-act" + (liked.has(p.id) ? " liked" : "")} onClick={() => toggleHelpful(p)}>
+                    <button className={"cm-act" + (liked.has(p.id) ? " liked" : "")} onClick={() => toggleHelpful(p)}
+                      title={liked.has(p.id) ? "Bỏ hữu ích (gỡ khỏi Wishlist)" : "Thấy hữu ích → lưu vào Wishlist"}>
                       {liked.has(p.id) ? "❤️" : "🤍"} Hữu ích {p.helpful_count > 0 && `· ${p.helpful_count}`}
                     </button>
                     <button className={"cm-act" + (openC.has(p.id) ? " on" : "")} onClick={() => toggleComments(p.id)}>
@@ -496,10 +742,11 @@ export default function CommunityPage() {
                         {topLevel.map((c) => (
                           <div key={c.id}>
                             <div className="cm-cmt">
-                              <div className="cm-cmt-av" style={{ background: avGrad(c.author_name) }}>{initials(c.author_name)}</div>
+                              <div className="cm-cmt-av cm-author" style={{ background: avGrad(c.author_name) }}
+                                onClick={() => openProfile(c.author_id)} title="Xem hồ sơ">{initials(c.author_name)}</div>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div className="cm-cmt-body">
-                                  <span className="cm-cmt-nm">{c.author_name}</span>
+                                  <span className="cm-cmt-nm cm-author" onClick={() => openProfile(c.author_id)}>{c.author_name}</span>
                                   <span className="cm-cmt-tx">{c.content}</span>
                                   <span className="cm-cmt-tm">{timeAgo(c.created_at)}</span>
                                 </div>
@@ -514,9 +761,10 @@ export default function CommunityPage() {
                               <div className="cm-replies">
                                 {(byParent[c.id] || []).map((r) => (
                                   <div key={r.id} className="cm-cmt">
-                                    <div className="cm-cmt-av" style={{ background: avGrad(r.author_name) }}>{initials(r.author_name)}</div>
+                                    <div className="cm-cmt-av cm-author" style={{ background: avGrad(r.author_name) }}
+                                      onClick={() => openProfile(r.author_id)} title="Xem hồ sơ">{initials(r.author_name)}</div>
                                     <div className="cm-cmt-body">
-                                      <span className="cm-cmt-nm">{r.author_name}</span>
+                                      <span className="cm-cmt-nm cm-author" onClick={() => openProfile(r.author_id)}>{r.author_name}</span>
                                       <span className="cm-cmt-tx">{r.content}</span>
                                       <span className="cm-cmt-tm">{timeAgo(r.created_at)}</span>
                                     </div>
@@ -587,6 +835,25 @@ export default function CommunityPage() {
           </aside>
         </div>
       </div>
+
+      {lightbox && (() => {
+        const { imgs, idx } = lightbox;
+        const url = imgs[idx];
+        return (
+          <div className="cm-lb" onClick={() => setLightbox(null)}>
+            <button className="cm-lb-x" onClick={() => setLightbox(null)}>×</button>
+            {imgs.length > 1 && (
+              <button className="cm-lb-nav prev" onClick={(e) => { e.stopPropagation(); setLightbox((l) => ({ ...l, idx: (l.idx - 1 + imgs.length) % imgs.length })); }}>‹</button>
+            )}
+            <img src={url} alt="" onClick={(e) => e.stopPropagation()} />
+            {imgs.length > 1 && (
+              <button className="cm-lb-nav next" onClick={(e) => { e.stopPropagation(); setLightbox((l) => ({ ...l, idx: (l.idx + 1) % imgs.length })); }}>›</button>
+            )}
+          </div>
+        );
+      })()}
+
+      {profileId && <ProfileModal userId={profileId} onClose={() => setProfileId(null)} />}
 
       <SiteFooter />
     </>
