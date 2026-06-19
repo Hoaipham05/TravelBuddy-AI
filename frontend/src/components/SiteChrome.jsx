@@ -91,10 +91,10 @@ const IconLogout = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="
 
 const NAV = [
   { key: "home",      icon: "🏠", label: "Trang chủ" },
-  { key: "plan",      icon: "📅", label: "Lập kế hoạch" },
-  { key: "flight",    icon: "✈️", label: "Vé máy bay" },
-  { key: "hotel",     icon: "🏨", label: "Khách sạn" },
-  { key: "community", icon: "👥", label: "Cộng đồng" },
+  { key: "plan",      icon: "",   label: "Lập kế hoạch" },
+  { key: "flight",    icon: "",   label: "Vé máy bay" },
+  { key: "hotel",     icon: "",   label: "Khách sạn" },
+  { key: "community", icon: "",   label: "Cộng đồng" },
   { key: "ai",        icon: "🤖", label: "Trợ lý AI" },
 ];
 const ROUTES = { home: "/", plan: "/plan", flight: "/flights", hotel: "/hotels", community: "/community", ai: "/assistant" };
@@ -203,7 +203,7 @@ export function SiteHeader({ active = "home", onStartTour }) {
         <nav className="sc-nav">
           {NAV.map((n) => (
             <button key={n.key} data-nav={n.key} className={"sc-nav-item" + (n.key === active ? " active" : "")} onClick={() => onNav(n)}>
-              <span>{n.icon}</span><span>{n.label}</span>
+              {n.icon && <span>{n.icon}</span>}<span>{n.label}</span>
             </button>
           ))}
         </nav>
@@ -256,9 +256,6 @@ export function SiteHeader({ active = "home", onStartTour }) {
                 </button>
                 <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/my-trips"); }}>
                   <IconTrips /> Kế hoạch của tôi
-                </button>
-                <button className="sc-menu-item" onClick={() => { setMenuOpen(false); navigate("/wishlist"); }}>
-                  <IconHeart /> Wishlist của tôi
                 </button>
                 <button className="sc-menu-item danger" onClick={logout}>
                   <IconLogout /> Đăng xuất

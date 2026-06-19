@@ -24,14 +24,14 @@ body { font-family:'Inter',-apple-system,sans-serif; background:#F0F9FF; color:#
   background-image:radial-gradient(circle, rgba(255,255,255,0.08) 1.5px, transparent 1.5px); background-size:26px 26px; }
 .pf-banner-deco { position:absolute; right:6%; top:-10px; font-size:7rem; opacity:0.12; pointer-events:none; user-select:none; }
 
-.pf-head { position:relative; z-index:2; display:flex; align-items:flex-end; gap:1.5rem; margin-top:-60px; padding:0 0.5rem; flex-wrap:wrap; }
+.pf-head { position:relative; z-index:2; display:flex; align-items:flex-end; gap:1.5rem; margin-top:-128px; padding:0 0.5rem; flex-wrap:wrap; }
 .pf-avatar { width:124px; height:124px; flex-shrink:0; border-radius:50%; border:5px solid #fff;
   background:linear-gradient(135deg,#F97316,#FB7185); display:flex; align-items:center; justify-content:center;
   color:#fff; font-family:'Nunito',sans-serif; font-weight:900; font-size:2.75rem; background-size:cover; background-position:center;
   box-shadow:0 14px 32px rgba(15,23,42,0.18); }
 .pf-head-info { flex:1; min-width:200px; padding-bottom:0.5rem; }
-.pf-name { font-family:'Nunito',sans-serif; font-weight:900; font-size:1.75rem; letter-spacing:-0.02em; color:#0F172A; }
-.pf-email { font-size:0.9375rem; color:#64748B; margin-top:0.3rem; }
+.pf-name { font-family:'Nunito',sans-serif; font-weight:900; font-size:1.75rem; letter-spacing:-0.02em; color:#fff; text-shadow:0 1px 4px rgba(8,47,73,0.35); }
+.pf-email { font-size:0.9375rem; color:rgba(255,255,255,0.9); margin-top:0.3rem; text-shadow:0 1px 3px rgba(8,47,73,0.3); }
 .pf-head-actions { display:flex; gap:0.625rem; padding-bottom:0.625rem; }
 .pf-btn { display:inline-flex; align-items:center; gap:0.45rem; padding:0.625rem 1.125rem; border-radius:10px;
   font-family:'Nunito',sans-serif; font-weight:800; font-size:0.875rem; cursor:pointer; transition:all 0.15s; }
@@ -71,7 +71,7 @@ body { font-family:'Inter',-apple-system,sans-serif; background:#F0F9FF; color:#
 
 @media (max-width:600px) {
   .pf-main { padding:0 1.25rem 2.5rem; }
-  .pf-head { gap:1rem; margin-top:-52px; }
+  .pf-head { gap:1rem; margin-top:-112px; }
   .pf-avatar { width:100px; height:100px; font-size:2.25rem; }
   .pf-name { font-size:1.5rem; }
   .pf-fields { grid-template-columns:1fr; }

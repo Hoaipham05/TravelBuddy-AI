@@ -10,7 +10,6 @@ import HotelsPage from "./pages/HotelsPage";
 import CommunityPage from "./pages/CommunityPage";
 import AssistantPage from "./pages/AssistantPage";
 import ProfilePage from "./pages/ProfilePage";
-import WishlistPage from "./pages/WishlistPage";
 import AssistantWidget from "./components/assistant/AssistantWidget";
 
 function getToken() {
@@ -34,7 +33,6 @@ createRoot(document.getElementById("root")).render(
         <Route path="/community" element={<Protected><CommunityPage /></Protected>} />
         <Route path="/assistant" element={<Protected><AssistantPage /></Protected>} />
         <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
-        <Route path="/wishlist" element={<Protected><WishlistPage /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <AssistantWidget />

@@ -1,0 +1,102 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Luồng xử lý AI Agent - TravelBuddy" id="agent-flow">
+    <mxGraphModel dx="1288" dy="823" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1150" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#333333;" value="LUỒNG XỬ LÝ CỦA AI AGENT (LangGraph ReAct)" vertex="1">
+          <mxGeometry height="30" width="560" x="290" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="start" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" value="Người dùng gửi câu hỏi&#xa;(văn bản / ảnh)" vertex="1">
+          <mxGeometry height="50" width="260" x="440" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="guard_in" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="Guardrail kiểm tra ĐẦU VÀO&#xa;(lọc nội dung độc hại / không hợp lệ)" vertex="1">
+          <mxGeometry height="50" width="300" x="420" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="hist" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="Nạp lịch sử hội thoại theo session_id&#xa;(Redis — bộ nhớ ngữ cảnh)" vertex="1">
+          <mxGeometry height="50" width="300" x="420" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="reason" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" value="LLM SUY LUẬN&#xa;Phân tích yêu cầu, quyết định bước tiếp theo" vertex="1">
+          <mxGeometry height="60" width="300" x="420" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="dec" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="Có cần gọi&#xa;công cụ (tool)&#xa;không?" vertex="1">
+          <mxGeometry height="110" width="190" x="475" y="444" as="geometry" />
+        </mxCell>
+        <mxCell id="tool" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="GỌI CÔNG CỤ&#xa;(Tìm vé / Khách sạn / Thời tiết /&#xa;Điểm tham quan / Tìm web / Vision...)" vertex="1">
+          <mxGeometry height="60" width="280" x="80" y="465" as="geometry" />
+        </mxCell>
+        <mxCell id="exec" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1;" value="Thực thi công cụ — lấy dữ liệu" vertex="1">
+          <mxGeometry height="40" width="240" x="100" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="src1" parent="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" value="PostgreSQL&#xa;(dữ liệu nội bộ)" vertex="1">
+          <mxGeometry height="70" width="130" x="60" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="src2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="Dịch vụ ngoài&#xa;(LLM, SearXNG,&#xa;Open-Meteo, Vision...)" vertex="1">
+          <mxGeometry height="60" width="160" x="240" y="685" as="geometry" />
+        </mxCell>
+        <mxCell id="result" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" value="Đưa kết quả công cụ&#xa;về cho LLM" vertex="1">
+          <mxGeometry height="50" width="200" x="120" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="synth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" value="TỔNG HỢP CÂU TRẢ LỜI&#xa;(văn bản + hình ảnh + trích dẫn nguồn)" vertex="1">
+          <mxGeometry height="60" width="300" x="420" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="guard_out" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="Guardrail kiểm tra ĐẦU RA&#xa;(lọc / chuẩn hóa nội dung trả về)" vertex="1">
+          <mxGeometry height="50" width="300" x="420" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="save" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="Lưu lượt hội thoại vào Redis&#xa;(cập nhật ngữ cảnh phiên)" vertex="1">
+          <mxGeometry height="50" width="300" x="420" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="end" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" value="Trả câu trả lời về người dùng&#xa;(REST / WebSocket / SSE streaming)" vertex="1">
+          <mxGeometry height="50" width="260" x="440" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="start" style="endArrow=classic;html=1;strokeColor=#333333;" target="guard_in">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="guard_in" style="endArrow=classic;html=1;strokeColor=#333333;" target="hist">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="hist" style="endArrow=classic;html=1;strokeColor=#333333;" target="reason">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="reason" style="endArrow=classic;html=1;strokeColor=#333333;" target="dec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="dec" style="endArrow=classic;html=1;strokeColor=#9673a6;fontSize=11;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="tool" value="CÓ">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="dec" style="endArrow=classic;html=1;strokeColor=#9673a6;fontSize=11;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="synth" value="KHÔNG&#xa;(đã đủ thông tin)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="tool" style="endArrow=classic;html=1;strokeColor=#666666;" target="exec">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="exec" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#b85450;" target="src1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" source="exec" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#d6b656;" target="src2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="exec" style="endArrow=classic;html=1;strokeColor=#666666;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="result" value="kết quả">
+          <mxGeometry relative="1" x="0.6" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="result" style="endArrow=classic;html=1;strokeColor=#9673a6;fontSize=11;fontStyle=1;dashed=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="reason" value="VÒNG LẶP&#xa;suy luận tiếp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="synth" style="endArrow=classic;html=1;strokeColor=#333333;" target="guard_out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="guard_out" style="endArrow=classic;html=1;strokeColor=#333333;" target="save">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="save" style="endArrow=classic;html=1;strokeColor=#333333;" target="end">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;fontColor=#9673a6;spacingLeft=4;" value="★ Vòng lặp ReAct: LLM suy luận → gọi tool → nhận kết quả → suy luận tiếp,&#xa;lặp lại đến khi đủ thông tin để trả lời (Reasoning + Acting)." vertex="1">
+          <mxGeometry height="60" width="350" x="770" y="450" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

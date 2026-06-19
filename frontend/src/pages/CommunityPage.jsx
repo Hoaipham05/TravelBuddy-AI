@@ -459,18 +459,6 @@ export default function CommunityPage() {
   }, [sort, filterDest]);
   useEffect(() => { load(); }, [load]);
 
-  /* nạp danh sách "hữu ích" đã lưu → đánh dấu các bài đã lưu (đồng bộ đa thiết bị) */
-  useEffect(() => {
-    const token = getToken();
-    if (!token) return;
-    fetch("/api/travel/community/saved", { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.ok ? r.json() : { items: [] })
-      .then((d) => {
-        const ids = (d.items || []).filter((it) => it.kind === "post").map((it) => it.review_id);
-        if (ids.length) setLiked((prev) => { const n = new Set(prev); ids.forEach((id) => n.add(id)); return n; });
-      }).catch(() => {});
-  }, []);
-
   const selectedTrip = savedTrips.find((t) => String(t.id) === String(tripId));
 
   /* upload nhiều ảnh cho composer */
@@ -518,7 +506,7 @@ export default function CommunityPage() {
     }
   };
 
-  /* "Hữu ích" — toggle bật/tắt như thả cảm xúc. Bật = lưu vào Wishlist, tắt = gỡ. */
+  /* "Hữu ích" — toggle bật/tắt như thả cảm xúc (chỉ là phản hồi, tăng/giảm lượt). */
   const toggleHelpful = async (post) => {
     const token = getToken();
     if (!token) { toast("Đăng nhập để dùng tính năng này"); navigate("/login"); return; }
@@ -724,7 +712,7 @@ export default function CommunityPage() {
 
                   <div className="cm-post-foot">
                     <button className={"cm-act" + (liked.has(p.id) ? " liked" : "")} onClick={() => toggleHelpful(p)}
-                      title={liked.has(p.id) ? "Bỏ hữu ích (gỡ khỏi Wishlist)" : "Thấy hữu ích → lưu vào Wishlist"}>
+                      title={liked.has(p.id) ? "Bỏ đánh dấu hữu ích" : "Đánh dấu bài này hữu ích"}>
                       {liked.has(p.id) ? "❤️" : "🤍"} Hữu ích {p.helpful_count > 0 && `· ${p.helpful_count}`}
                     </button>
                     <button className={"cm-act" + (openC.has(p.id) ? " on" : "")} onClick={() => toggleComments(p.id)}>

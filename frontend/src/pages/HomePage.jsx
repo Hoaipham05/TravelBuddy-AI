@@ -473,7 +473,7 @@ const TOUR = [
   { key: "hotel",     icon: "🏨", bg: "linear-gradient(135deg,#10B981,#059669)", title: "Khách sạn", desc: "Tìm kiếm, lọc theo giá – số sao – tiện ích và so sánh song song nhiều khách sạn trên bản đồ trực quan." },
   { key: "community", icon: "👥", bg: "linear-gradient(135deg,#F97316,#FB7185)", title: "Cộng đồng Traveler", desc: "Đọc review thật, xem ảnh thực tế và clone lịch trình mẫu từ cộng đồng chỉ với một cú nhấp." },
   { key: "ai",        icon: "🤖", bg: "linear-gradient(135deg,#7C3AED,#4F46E5)", title: "Trợ lý AI", desc: "Bế tắc khi lên kế hoạch? Hỏi AI bằng ngôn ngữ tự nhiên để nhận gợi ý điểm đến, vé, khách sạn và ngân sách." },
-  { key: "profile",   icon: "👤", bg: "linear-gradient(135deg,#F97316,#FB7185)", title: "Hồ sơ của bạn", desc: "Lưu sở thích du lịch, lịch sử chuyến đi, wishlist và tích điểm – huy hiệu sau mỗi hành trình." },
+  { key: "profile",   icon: "👤", bg: "linear-gradient(135deg,#F97316,#FB7185)", title: "Hồ sơ của bạn", desc: "Lưu sở thích du lịch và lịch sử chuyến đi – cá nhân hoá gợi ý cho từng hành trình." },
 ];
 
 /* ─────────────────────────────────────────────────
@@ -686,7 +686,6 @@ export default function HomePage() {
               <div className="hp-post-foot">
                 <span>❤️ {p.likes}</span>
                 <span>💬 {p.cmts}</span>
-                <span>🔖 Lưu</span>
               </div>
             </div>
           ))}
