@@ -1,15 +1,14 @@
 # CI/CD
 
-Thư mục này giữ placeholder cho cấu hình CI/CD và deployment.
+Thư mục này giữ cấu hình CI/CD và deployment.
 
 ```text
 CI-CD/
-├── github-actions/
-└── deployment/
+├── deployment/      # Doc/manifest/script triển khai theo môi trường
+└── README.md
 ```
 
 Ghi chú:
 
-- Khi có workflow thật, có thể chuyển cấu hình GitHub Actions sang `.github/workflows/`.
-- `deployment/` dùng cho manifest hoặc script triển khai theo môi trường.
-- Hiện tại thư mục được giữ để không mất kế hoạch CI/CD trong các phase sau.
+- Khi có workflow thật, đặt cấu hình GitHub Actions tại `.github/workflows/`.
+- `deployment/` đang chứa hướng dẫn triển khai (xem `DEPLOY_CLOUDFLARE.md`).

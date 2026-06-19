@@ -6,14 +6,17 @@ Thư mục `docs/` được chia theo mục đích đọc:
 docs/
 ├── api/             # Tài liệu API/backend endpoint
 ├── architecture/    # Kiến trúc hệ thống, data flow, quyết định kỹ thuật
-├── data/            # Báo cáo dữ liệu, nguồn dữ liệu, cách tái tạo
+├── data/            # Báo cáo dữ liệu, thiết kế CSDL, cách tái tạo
 ├── development/     # Quy trình phát triển, checklist, TODO kỹ thuật
+├── diagrams/        # Sơ đồ .drawio: kiến trúc, ERD, usecase, agent flow
 └── product/         # Đặc tả tính năng và hành vi sản phẩm
 ```
 
 ## Tài Liệu Chính
 
 - [Báo cáo dữ liệu](./data/DATA_REPORT.md)
+- [Thiết kế CSDL](./data/MO_TA_CO_SO_DU_LIEU.md)
+- [Sơ đồ thiết kế (.drawio)](./diagrams/)
 - [Kiến trúc hệ thống](./architecture/ARCHITECTURE.md)
 - [API](./api/API.md)
 - [Đặc tả tính năng](./product/FEATURE_SPECIFICATION.md)

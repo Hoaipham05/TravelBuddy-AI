@@ -28,26 +28,20 @@ TravelBuddy_AI/
 │
 ├── frontend/                      # React/Vite app, giữ sẵn để xây UI
 │   ├── src/
-│   │   ├── assets/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   ├── layouts/
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── utils/
+│   │   ├── components/            # Component dùng chung + assistant widget
+│   │   └── pages/                # Các trang theo route
 │   ├── Dockerfile
 │   └── package.json
 │
-├── database/                      # PostgreSQL schema, seed, data setup
-│   ├── travel_buddy_db/           # Schema canonical và seed đang dùng
-│   ├── migrations/                # Placeholder cho migration thật sau này
-│   └── seeds/                     # Placeholder cho seed chia nhỏ sau này
+├── database/                      # PostgreSQL schema + seed (mount vào Postgres)
+│   └── travel_buddy_db/           # Schema canonical và seed đang dùng (01→04)
 │
 ├── docs/                          # Tài liệu dự án, chia theo nhóm
 │   ├── api/
 │   ├── architecture/
-│   ├── data/
+│   ├── data/                      # Báo cáo dữ liệu + thiết kế CSDL
 │   ├── development/
+│   ├── diagrams/                  # Sơ đồ .drawio (kiến trúc, ERD, usecase, agent flow)
 │   └── product/
 │
 ├── docker/                        # Cấu hình hạ tầng container
@@ -55,8 +49,8 @@ TravelBuddy_AI/
 │   └── searxng/
 │
 ├── scripts/                       # Script tiện ích chạy từ root project
-├── tests/                         # Test cấp hệ thống/e2e/integration
-├── CI-CD/                         # Placeholder CI/CD và deployment
+├── tests/                         # Test cấp hệ thống/e2e (placeholder)
+├── CI-CD/                         # CI/CD và deployment (deployment đã có doc)
 ├── runtime/                       # Artifact local: logs, file sinh ra khi chạy
 ├── docker-compose.yml
 ├── .env.example
@@ -104,6 +98,8 @@ docker compose exec -T api sh -lc "cd /app/src/api/travel_api && python pipeline
 ## Tài Liệu Nên Đọc
 
 - Báo cáo dữ liệu: [docs/data/DATA_REPORT.md](./docs/data/DATA_REPORT.md)
+- Thiết kế CSDL: [docs/data/MO_TA_CO_SO_DU_LIEU.md](./docs/data/MO_TA_CO_SO_DU_LIEU.md)
+- Sơ đồ thiết kế: [docs/diagrams/](./docs/diagrams/)
 - Kiến trúc hệ thống: [docs/architecture/ARCHITECTURE.md](./docs/architecture/ARCHITECTURE.md)
 - API: [docs/api/API.md](./docs/api/API.md)
 - Đặc tả tính năng: [docs/product/FEATURE_SPECIFICATION.md](./docs/product/FEATURE_SPECIFICATION.md)
