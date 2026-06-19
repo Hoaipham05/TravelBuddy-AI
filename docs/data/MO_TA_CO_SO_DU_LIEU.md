@@ -50,28 +50,143 @@
 | estimated_duration_min | INT | | Thời gian tham quan ước tính |
 
 ### 2.4. Nhóm chuyến bay
-**`airports`**: `iata_code` (PK), name, city, country_code, lat/lng.
-**`airlines`**: `iata_code` (PK), name, country_code, logo_url.
-**`flight_routes`**: id (PK), `origin_iata` (FK), `destination_iata` (FK), `destination_id` (FK), `route_key` (UNIQUE) — định nghĩa một tuyến bay A→B.
-**`flight_price_snapshots`**: id (PK), `route_id` (FK), `airline_iata` (FK), departure_date, price_amount, currency, `expires_at` — bản chụp giá vé tại một thời điểm.
+
+`airports` — Sân bay
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| iata_code | CHAR(3) | PK | Mã sân bay IATA |
+| name / city | VARCHAR | | Tên sân bay, thành phố |
+| country_code | CHAR(2) | NOT NULL | Mã quốc gia |
+| lat / lng | NUMERIC(9,6) | | Tọa độ |
+
+`airlines` — Hãng bay
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| iata_code | CHAR(2) | PK | Mã hãng bay IATA |
+| name | VARCHAR | | Tên hãng |
+| country_code | CHAR(2) | | Mã quốc gia |
+| logo_url | TEXT | | Logo hãng |
+
+`flight_routes` — Tuyến bay
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh tuyến bay |
+| origin_iata | CHAR(3) | FK → airports | Sân bay đi |
+| destination_iata | CHAR(3) | FK → airports | Sân bay đến |
+| destination_id | UUID | FK → destinations | Điểm đến gắn với tuyến |
+| route_key | VARCHAR(7) | UNIQUE | Khóa định danh tuyến A→B |
+
+`flight_price_snapshots` — Bản chụp giá vé
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bản chụp giá |
+| route_id | UUID | FK → flight_routes | Thuộc tuyến nào |
+| airline_iata | CHAR(2) | FK → airlines | Hãng bay |
+| departure_date | DATE | NOT NULL | Ngày bay |
+| price_amount / currency | NUMERIC(14,2) / CHAR(3) | | Giá vé và tiền tệ |
+| expires_at | TIMESTAMPTZ | NOT NULL | Thời điểm hết hạn cache |
 
 ### 2.5. Nhóm khách sạn
-**`hotels`**: id (PK), `destination_id` (FK), name, stars, amenities (JSONB), avg_rating.
-**`hotel_rate_snapshots`**: id (PK), `hotel_id` (FK), checkin_date, checkout_date, price_amount, `expires_at` — bản chụp giá phòng theo khoảng ngày.
+
+`hotels` — Khách sạn
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh khách sạn |
+| destination_id | UUID | FK → destinations | Thuộc điểm đến nào |
+| name | VARCHAR | | Tên khách sạn |
+| stars | NUMERIC(2,1) | CHECK 0–5 | Hạng sao |
+| amenities | JSONB | DEFAULT '[]' | Tiện ích |
+| avg_rating | NUMERIC | | Điểm đánh giá trung bình |
+
+`hotel_rate_snapshots` — Bản chụp giá phòng
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bản chụp giá |
+| hotel_id | UUID | FK → hotels | Thuộc khách sạn nào |
+| checkin_date / checkout_date | DATE | checkout > checkin | Khoảng ngày ở |
+| price_amount / currency | NUMERIC(14,2) / CHAR(3) | | Giá phòng và tiền tệ |
+| expires_at | TIMESTAMPTZ | NOT NULL | Thời điểm hết hạn cache |
 
 ### 2.6. Nhóm thời tiết
-**`weather_cache`**: id (PK), `destination_id` (FK), cache_key (UNIQUE), forecast_days, `expires_at`, raw (JSONB) — cache phản hồi từ Open-Meteo.
-**`weather_daily_forecasts`**: id (PK), `weather_cache_id` (FK), `destination_id` (FK), forecast_date, temp_max_c/temp_min_c, travel_score — dự báo từng ngày.
+
+`weather_cache` — Cache dự báo
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bản cache |
+| destination_id | UUID | FK → destinations | Thuộc điểm đến nào |
+| cache_key | VARCHAR(220) | UNIQUE | Khóa cache |
+| forecast_days | SMALLINT | DEFAULT 16 | Số ngày dự báo |
+| raw | JSONB | | Phản hồi gốc từ Open-Meteo |
+| expires_at | TIMESTAMPTZ | NOT NULL | Thời điểm hết hạn cache |
+
+`weather_daily_forecasts` — Dự báo theo ngày
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bản ghi |
+| weather_cache_id | UUID | FK → weather_cache | Thuộc bản cache nào |
+| destination_id | UUID | FK → destinations | Thuộc điểm đến nào |
+| forecast_date | DATE | NOT NULL | Ngày dự báo |
+| temp_max_c / temp_min_c | NUMERIC(5,2) | | Nhiệt độ cao/thấp nhất |
+| travel_score | SMALLINT | CHECK 0–100 | Điểm phù hợp du lịch |
 
 ### 2.7. Nhóm chuyến đi (lập kế hoạch)
-**`trips`**: id (PK), `owner_id` (FK → users), `destination_id` (FK), title, start/end_date, budget_amount, status, is_public, clone_count.
-**`trip_days`**: id (PK), `trip_id` (FK), day_number, date — các ngày trong chuyến đi.
-**`itinerary_items`**: id (PK), `day_id` (FK), item_type, `poi_id`/`hotel_id`/`flight_snapshot_id` (FK), start_time, cost_amount — từng hoạt động trong ngày.
-**`trip_members`**: `trip_id` + `user_id` (PK kép, FK), role (owner/editor/viewer) — quan hệ **n-n** giữa người dùng và chuyến đi.
+
+`trips` — Chuyến đi
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh chuyến đi |
+| owner_id | UUID | FK → users | Người tạo chuyến |
+| destination_id | UUID | FK → destinations | Điểm đến |
+| title | VARCHAR | | Tên chuyến đi |
+| start_date / end_date | DATE | | Ngày bắt đầu/kết thúc |
+| budget_amount / currency | NUMERIC / CHAR(3) | | Ngân sách |
+| status / is_public / clone_count | VARCHAR / BOOLEAN / INT | | Trạng thái, công khai, số lần được clone |
+
+`trip_days` — Ngày trong chuyến
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh ngày |
+| trip_id | UUID | FK → trips | Thuộc chuyến nào |
+| day_number | SMALLINT | UNIQUE theo trip | Ngày thứ mấy |
+| date | DATE | | Ngày cụ thể |
+
+`itinerary_items` — Hoạt động trong ngày
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh hoạt động |
+| day_id | UUID | FK → trip_days | Thuộc ngày nào |
+| item_type | VARCHAR(40) | NOT NULL | Loại hoạt động |
+| poi_id / hotel_id / flight_snapshot_id | UUID | FK | Đối tượng gắn kèm |
+| start_time | TIME | | Giờ bắt đầu |
+| cost_amount / currency | NUMERIC(14,2) / CHAR(3) | | Chi phí |
+
+`trip_members` — Thành viên chuyến đi
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| trip_id + user_id | UUID | PK kép, FK | Quan hệ **n-n** người dùng ↔ chuyến đi |
+| role | VARCHAR | | Vai trò (owner / editor / viewer) |
 
 ### 2.8. Nhóm cộng đồng
-**`reviews`**: id (PK), `user_id` (FK), `destination_id`/`hotel_id`/`poi_id` (FK — chỉ 1 trong 3), rating (1-5), content, images (JSONB), helpful_count, trip_data (JSONB).
-**`community_comments`**: id (PK), `review_id` (FK), `user_id` (FK), `parent_id` (FK tự tham chiếu — bình luận lồng nhau), content.
+
+`reviews` — Bài đánh giá
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bài đánh giá |
+| user_id | UUID | FK → users | Người viết |
+| destination_id / hotel_id / poi_id | UUID | FK (chỉ 1 trong 3) | Đối tượng được đánh giá |
+| rating | INT | CHECK 1–5 | Điểm đánh giá |
+| content | TEXT | | Nội dung |
+| images / trip_data | JSONB | | Ảnh đính kèm, dữ liệu chuyến đi |
+| helpful_count | INT | DEFAULT 0 | Số lượt thấy hữu ích |
+
+`community_comments` — Bình luận
+| Cột | Kiểu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| id | UUID | PK | Định danh bình luận |
+| review_id | UUID | FK → reviews | Thuộc bài đánh giá nào |
+| user_id | UUID | FK → users | Người bình luận |
+| parent_id | UUID | FK tự tham chiếu | Bình luận cha (lồng nhau) |
+| content | TEXT | | Nội dung |
 
 ---
 
