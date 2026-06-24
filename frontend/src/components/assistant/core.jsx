@@ -108,6 +108,8 @@ function parseImages(events) {
 
 function renderMd(raw, citations) {
   if (!raw) return "";
+  // Safety net: never render structured-answer markers as literal text.
+  raw = raw.replace(/\[\[PART:[a-z_]+\]\]/gi, "");
   const lines = raw.split("\n");
   const out = [];
   let i = 0;
@@ -194,6 +196,98 @@ function inlineMd(text, citations) {
       const tip = c.title ? `title="${c.title.replace(/"/g, "&quot;")}"` : "";
       return `<a class="cite-badge" href="${c.url}" target="_blank" rel="noopener" ${tip}>[${n}]</a>`;
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  5-PART STRUCTURED ANSWER (TravelBuddy AI — tư vấn chuyến đi đầy đủ)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PART_META = {
+  intro:     { icon: "🏝️", title: "Giới thiệu điểm đến" },
+  itinerary: { icon: "📅", title: "Gợi ý lịch trình" },
+  flights:   { icon: "✈️", title: "Chuyến bay" },
+  hotels:    { icon: "🏨", title: "Khách sạn" },
+  budget:    { icon: "💰", title: "Tổng kết ngân sách" },
+};
+
+// Tách câu trả lời theo các dòng đánh dấu [[PART:key]]. Trả về null khi không có
+// marker (hỏi đáp tự do) để Message fallback về markdown thường.
+function splitParts(raw) {
+  if (!raw || !/\[\[PART:[a-z_]+\]\]/i.test(raw)) return null;
+  const re = /\[\[PART:([a-z_]+)\]\]/gi;
+  const marks = [];
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    marks.push({ key: m[1].toLowerCase(), start: m.index, contentStart: re.lastIndex });
+  }
+  if (!marks.length) return null;
+  const parts = [];
+  const lead = raw.slice(0, marks[0].start).trim();
+  if (lead) parts.push({ key: "_lead", body: lead });
+  marks.forEach((mk, i) => {
+    const end = i + 1 < marks.length ? marks[i + 1].start : raw.length;
+    const body = raw.slice(mk.contentStart, end).trim();
+    if (body) parts.push({ key: mk.key, body });
+  });
+  return parts.length ? parts : null;
+}
+
+// Lấy dòng tiêu đề (heading "### .." hoặc "**..**") ở đầu phần để làm header thẻ,
+// đồng thời tách nó ra khỏi nội dung để không bị lặp tiêu đề.
+function extractTitle(body) {
+  const lines = body.split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  if (i >= lines.length) return { title: null, body };
+  const first = lines[i].trim();
+  const h = first.match(/^#{1,4}\s+(.+?)\s*#*$/);
+  const b = first.match(/^\*\*(.+?)\*\*\s*$/);
+  let title = h ? h[1] : (b ? b[1] : null);
+  if (!title) return { title: null, body };
+  title = title.replace(/\*\*/g, "").replace(/`/g, "").trim();
+  const rest = lines.slice(i + 1).join("\n").trim();
+  return { title, body: rest };
+}
+
+function PartCards({ parts, theme, citations }) {
+  const t = THEMES[theme];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {parts.map((p, idx) => {
+        const meta = PART_META[p.key];
+        const { title: extractedTitle, body: extractedBody } = extractTitle(p.body);
+        const titleText = extractedTitle || (meta ? meta.title : null);
+        const bodyText = extractedTitle ? extractedBody : p.body;
+        // Nếu tiêu đề đã mở đầu bằng emoji/ký hiệu thì không chèn icon nữa (tránh lặp).
+        const startsWithLetter = titleText && /^[\p{L}\p{N}]/u.test(titleText);
+        const icon = meta ? meta.icon : "📌";
+        return (
+          <div key={idx} style={{
+            border: `1px solid ${t.msgBorder}`,
+            borderRadius: "14px",
+            overflow: "hidden",
+            background: t.msgBg,
+            boxShadow: theme === "dark" ? "0 2px 14px rgba(0,0,0,0.35)" : "0 2px 14px rgba(0,0,0,0.08)",
+          }}>
+            {titleText && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: "9px",
+                padding: "11px 16px",
+                fontWeight: 700, fontSize: "16px", letterSpacing: "0.2px", lineHeight: "1.3",
+                color: "#fff",
+                background: "linear-gradient(135deg, #0ea5e9, #0284c7)",
+              }}>
+                {startsWithLetter && <span style={{ fontSize: "18px", flexShrink: 0 }}>{icon}</span>}
+                <span>{titleText}</span>
+              </div>
+            )}
+            <div className={`md-body md-${theme}`} style={{ padding: "12px 16px", fontSize: "14.5px", lineHeight: "1.65", color: t.text }}
+              dangerouslySetInnerHTML={{ __html: renderMd(bodyText, citations) }} />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -386,6 +480,7 @@ function Message({ msg, theme }) {
   const citations = isUser ? {} : parseCitations(msg.events);
   const images = isUser ? [] : parseImages(msg.events);
   const hasCitations = Object.keys(citations).length > 0;
+  const parts = (!isUser && !msg.loading) ? splitParts(msg.content) : null;
   return (
     <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", marginBottom: "20px", animation: "tb-fadeUp 0.3s ease" }}>
       {!isUser && (
@@ -394,6 +489,9 @@ function Message({ msg, theme }) {
       <div style={{ maxWidth: "82%", minWidth: "60px" }}>
         {!isUser && <ThinkingBlock events={msg.events} theme={theme} />}
         {images.length > 0 && <ImageGallery images={images} theme={theme} />}
+        {parts ? (
+          <PartCards parts={parts} theme={theme} citations={citations} />
+        ) : (
         <div style={{
           background: isUser ? "linear-gradient(135deg, #0ea5e9, #0284c7)" : t.msgBg,
           border: isUser ? "none" : `1px solid ${t.msgBorder}`,
@@ -408,6 +506,7 @@ function Message({ msg, theme }) {
             : msg.loading ? (<TypingDots />)
               : (<div className={`md-body md-${theme}`} dangerouslySetInnerHTML={{ __html: renderMd(msg.content, citations) }} />)}
         </div>
+        )}
         {!isUser && !msg.loading && hasCitations && (<CitationPanel citations={citations} theme={theme} />)}
         {msg.took_ms && !isUser && (<div style={{ fontSize: "11px", color: t.textDim, marginTop: "4px", paddingLeft: "4px" }}>{(msg.took_ms / 1000).toFixed(2)}s</div>)}
       </div>

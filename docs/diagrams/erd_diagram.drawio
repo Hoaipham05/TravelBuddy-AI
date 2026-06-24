@@ -1,137 +1,509 @@
 <mxfile host="app.diagrams.net">
-  <diagram name="ERD rút gọn - TravelBuddy AI" id="erd-core">
-    <mxGraphModel dx="589" dy="376" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1050" math="0" shadow="0">
+  <diagram name="ERD Chen - TravelBuddy AI" id="erd-chen-core">
+    <mxGraphModel dx="1364" dy="629" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="3780" pageHeight="1800" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#333333;" value="SƠ ĐỒ THỰC THỂ - QUAN HỆ (ERD) — TravelBuddy AI" vertex="1">
-          <mxGeometry height="30" width="620" x="430" y="10" as="geometry" />
+        <mxCell id="users" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="NGƯỜI DÙNG" vertex="1">
+          <mxGeometry height="56" width="180" x="270" y="632" as="geometry" />
         </mxCell>
-        <mxCell id="users" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="&lt;b&gt;users&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;email (UNIQUE)&#xa;full_name&#xa;password_hash&#xa;google_sub&#xa;level / total_points" vertex="1">
-          <mxGeometry height="150" width="210" x="40" y="60" as="geometry" />
+        <mxCell id="a_1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="&lt;b&gt;&lt;u&gt;MAND&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="250" y="444" as="geometry" />
         </mxCell>
-        <mxCell id="trips" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="&lt;b&gt;trips&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  owner_id&#xa;FK  destination_id&#xa;title&#xa;budget_amount&#xa;status / is_public" vertex="1">
-          <mxGeometry height="150" width="210" x="40" y="280" as="geometry" />
-        </mxCell>
-        <mxCell id="trip_days" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="&lt;b&gt;trip_days&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  trip_id&#xa;day_number&#xa;date" vertex="1">
-          <mxGeometry height="110" width="210" x="40" y="500" as="geometry" />
-        </mxCell>
-        <mxCell id="itinerary_items" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="&lt;b&gt;itinerary_items&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  day_id&#xa;item_type&#xa;FK  poi_id&#xa;FK  hotel_id&#xa;FK  flight_snapshot_id&#xa;cost_amount" vertex="1">
-          <mxGeometry height="170" width="220" x="40" y="680" as="geometry" />
-        </mxCell>
-        <mxCell id="trip_members" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" value="&lt;b&gt;trip_members&lt;/b&gt;&#xa;──────────&#xa;PK,FK  trip_id&#xa;PK,FK  user_id&#xa;role" vertex="1">
-          <mxGeometry height="100" width="210" x="40" y="910" as="geometry" />
-        </mxCell>
-        <mxCell id="destinations" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="&lt;b&gt;destinations&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;name / slug&#xa;country_code&#xa;lat / lng&#xa;avg_rating&#xa;best_months (JSONB)" vertex="1">
-          <mxGeometry height="150" width="210" x="360" y="300" as="geometry" />
-        </mxCell>
-        <mxCell id="pois" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="&lt;b&gt;pois&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  destination_id&#xa;name / category&#xa;lat / lng&#xa;entrance_fee_amount&#xa;avg_rating" vertex="1">
-          <mxGeometry height="150" width="210" x="360" y="520" as="geometry" />
-        </mxCell>
-        <mxCell id="reviews" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="&lt;b&gt;reviews&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  user_id&#xa;FK  destination_id&#xa;FK  hotel_id&#xa;FK  poi_id&#xa;rating / content&#xa;helpful_count" vertex="1">
-          <mxGeometry height="170" width="210" x="360" y="60" as="geometry" />
-        </mxCell>
-        <mxCell id="community_comments" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="&lt;b&gt;community_comments&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  review_id&#xa;FK  user_id&#xa;FK  parent_id (self)&#xa;content" vertex="1">
-          <mxGeometry height="130" width="220" x="660" y="60" as="geometry" />
-        </mxCell>
-        <mxCell id="hotels" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="&lt;b&gt;hotels&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  destination_id&#xa;name / stars&#xa;amenities (JSONB)&#xa;avg_rating" vertex="1">
-          <mxGeometry height="130" width="200" x="660" y="300" as="geometry" />
-        </mxCell>
-        <mxCell id="hotel_rate_snapshots" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" value="&lt;b&gt;hotel_rate_snapshots&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  hotel_id&#xa;checkin_date&#xa;checkout_date&#xa;price_amount&#xa;expires_at" vertex="1">
-          <mxGeometry height="150" width="210" x="660" y="500" as="geometry" />
-        </mxCell>
-        <mxCell id="airports" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="&lt;b&gt;airports&lt;/b&gt;&#xa;──────────&#xa;PK  iata_code&#xa;name / city&#xa;country_code&#xa;lat / lng" vertex="1">
-          <mxGeometry height="120" width="190" x="960" y="60" as="geometry" />
-        </mxCell>
-        <mxCell id="airlines" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="&lt;b&gt;airlines&lt;/b&gt;&#xa;──────────&#xa;PK  iata_code&#xa;name&#xa;country_code&#xa;logo_url" vertex="1">
-          <mxGeometry height="120" width="190" x="1200" y="60" as="geometry" />
-        </mxCell>
-        <mxCell id="flight_routes" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="&lt;b&gt;flight_routes&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  origin_iata&#xa;FK  destination_iata&#xa;FK  destination_id&#xa;route_key (UNIQUE)" vertex="1">
-          <mxGeometry height="150" width="210" x="960" y="250" as="geometry" />
-        </mxCell>
-        <mxCell id="flight_price_snapshots" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" value="&lt;b&gt;flight_price_snapshots&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  route_id&#xa;FK  airline_iata&#xa;departure_date&#xa;price_amount&#xa;expires_at" vertex="1">
-          <mxGeometry height="160" width="220" x="960" y="470" as="geometry" />
-        </mxCell>
-        <mxCell id="weather_cache" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="&lt;b&gt;weather_cache&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  destination_id&#xa;cache_key (UNIQUE)&#xa;forecast_days&#xa;expires_at" vertex="1">
-          <mxGeometry height="140" width="210" x="1230" y="250" as="geometry" />
-        </mxCell>
-        <mxCell id="weather_daily_forecasts" parent="1" style="rounded=0;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" value="&lt;b&gt;weather_daily_forecasts&lt;/b&gt;&#xa;──────────&#xa;PK  id&#xa;FK  weather_cache_id&#xa;FK  destination_id&#xa;forecast_date&#xa;temp_max_c / temp_min_c&#xa;travel_score" vertex="1">
-          <mxGeometry height="160" width="220" x="1230" y="470" as="geometry" />
-        </mxCell>
-        <mxCell id="r_trips_owner" edge="1" parent="1" source="users" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="trips">
+        <mxCell id="c158" edge="1" parent="1" source="a_1" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="users" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_reviews_user" edge="1" parent="1" source="users" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="reviews">
+        <mxCell id="a_3" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="HOTEN" vertex="1">
+          <mxGeometry height="46" width="132" x="113" y="473" as="geometry" />
+        </mxCell>
+        <mxCell id="c159" edge="1" parent="1" source="a_3" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=1;exitY=1;exitDx=0;exitDy=0;" target="users" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_comments_user" edge="1" parent="1" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;">
+        <mxCell id="a_5" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="EMAIL" vertex="1">
+          <mxGeometry height="46" width="132" x="45" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="c160" edge="1" parent="1" source="a_5" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="users" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c161" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-1" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="users" value="">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="250" y="114" as="sourcePoint" />
-            <mxPoint x="660" y="104" as="targetPoint" />
+            <mxPoint x="152.79095128026142" y="762.7791368895093" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="r_members_user" edge="1" parent="1" source="users" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="trip_members">
+        <mxCell id="trips" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="KẾ HOẠCH&amp;nbsp;" vertex="1">
+          <mxGeometry height="56" width="180" x="950" y="632" as="geometry" />
+        </mxCell>
+        <mxCell id="a_17" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MAKH&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="673" y="561" as="geometry" />
+        </mxCell>
+        <mxCell id="c166" edge="1" parent="1" source="a_17" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_days_trip" edge="1" parent="1" source="trips" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="trip_days">
+        <mxCell id="a_19" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENKH" vertex="1">
+          <mxGeometry height="46" width="132" x="708" y="497" as="geometry" />
+        </mxCell>
+        <mxCell id="c167" edge="1" parent="1" source="a_19" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_members_trip" edge="1" parent="1" source="trips" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="trip_members">
+        <mxCell id="a_21" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYBD" vertex="1">
+          <mxGeometry height="46" width="132" x="885" y="398" as="geometry" />
+        </mxCell>
+        <mxCell id="c168" edge="1" parent="1" source="a_21" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_trip_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="trips">
+        <mxCell id="a_23" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYKT" vertex="1">
+          <mxGeometry height="46" width="132" x="1017" y="408" as="geometry" />
+        </mxCell>
+        <mxCell id="c169" edge="1" parent="1" source="a_23" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_items_day" edge="1" parent="1" source="trip_days" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="itinerary_items">
+        <mxCell id="a_25" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TONGCHIPHI" vertex="1">
+          <mxGeometry height="46" width="132" x="1252" y="551" as="geometry" />
+        </mxCell>
+        <mxCell id="c170" edge="1" parent="1" source="a_25" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_items_poi" edge="1" parent="1" source="pois" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="itinerary_items">
+        <mxCell id="a_27" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="SONGAY" vertex="1">
+          <mxGeometry height="46" width="132" x="1137" y="439" as="geometry" />
+        </mxCell>
+        <mxCell id="c171" edge="1" parent="1" source="a_27" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trips" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_items_hotel" edge="1" parent="1" source="hotels" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="itinerary_items">
+        <mxCell id="trip_days" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CHI TIẾT KẾ HOẠCH" vertex="1">
+          <mxGeometry height="56" width="180" x="950" y="1012" as="geometry" />
+        </mxCell>
+        <mxCell id="a_31" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MACTKH&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="708" y="1089" as="geometry" />
+        </mxCell>
+        <mxCell id="c173" edge="1" parent="1" source="a_31" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trip_days" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_items_flight" edge="1" parent="1" source="flight_price_snapshots" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="itinerary_items">
+        <mxCell id="a_33" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYTHUCHIEN" vertex="1">
+          <mxGeometry height="46" width="132" x="717" y="1181" as="geometry" />
+        </mxCell>
+        <mxCell id="c174" edge="1" parent="1" source="a_33" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trip_days" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_pois_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="pois">
+        <mxCell id="a_35" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="THOIGIANTHUCHIEN" vertex="1">
+          <mxGeometry height="46" width="132" x="835" y="1227" as="geometry" />
+        </mxCell>
+        <mxCell id="c175" edge="1" parent="1" source="a_35" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trip_days" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_hotels_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="hotels">
+        <mxCell id="a_37" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENDIADIEMTQ" vertex="1">
+          <mxGeometry height="46" width="132" x="983" y="1232" as="geometry" />
+        </mxCell>
+        <mxCell id="c176" edge="1" parent="1" source="a_37" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="trip_days" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_reviews_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="reviews">
+        <mxCell id="destinations" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="ĐIỂM ĐẾN" vertex="1">
+          <mxGeometry height="56" width="180" x="1630" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="a_51" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MADD&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="1524" y="526" as="geometry" />
+        </mxCell>
+        <mxCell id="c183" edge="1" parent="1" source="a_51" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="destinations" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_routes_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="flight_routes">
+        <mxCell id="a_53" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENDIEMDEN" vertex="1">
+          <mxGeometry height="46" width="132" x="1650" y="484" as="geometry" />
+        </mxCell>
+        <mxCell id="c184" edge="1" parent="1" source="a_53" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="destinations" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_weather_dest" edge="1" parent="1" source="destinations" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="weather_cache">
+        <mxCell id="a_63" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="DANHGIA" vertex="1">
+          <mxGeometry height="46" width="132" x="1779" y="514" as="geometry" />
+        </mxCell>
+        <mxCell id="c189" edge="1" parent="1" source="a_63" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="destinations" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_rates_hotel" edge="1" parent="1" source="hotels" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="hotel_rate_snapshots">
+        <mxCell id="pois" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="ĐỊA ĐIỂM THAM QUAN" vertex="1">
+          <mxGeometry height="56" width="180" x="1632" y="1017" as="geometry" />
+        </mxCell>
+        <mxCell id="a_65" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MADDTQ&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="1409" y="1177" as="geometry" />
+        </mxCell>
+        <mxCell id="c190" edge="1" parent="1" source="a_65" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="pois" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1524.7131790157118" y="1177.7519377336653" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a_67" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENDDTQ" vertex="1">
+          <mxGeometry height="46" width="132" x="1563" y="1211" as="geometry" />
+        </mxCell>
+        <mxCell id="c191" edge="1" parent="1" source="a_67" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="pois" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_reviews_hotel" edge="1" parent="1" source="hotels" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="reviews">
+        <mxCell id="a_69" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="PHANLOAI" vertex="1">
+          <mxGeometry height="46" width="132" x="1717" y="1213" as="geometry" />
+        </mxCell>
+        <mxCell id="c192" edge="1" parent="1" source="a_69" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="pois" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_reviews_poi" edge="1" parent="1" source="pois" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="reviews">
+        <mxCell id="a_75" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="CHIPHIDIADIEM" vertex="1">
+          <mxGeometry height="46" width="132" x="1841" y="1171" as="geometry" />
+        </mxCell>
+        <mxCell id="c195" edge="1" parent="1" source="a_75" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="pois" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_routes_origin" edge="1" parent="1" source="airports" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="flight_routes">
+        <mxCell id="hotels" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="KHÁCH SẠN" vertex="1">
+          <mxGeometry height="56" width="180" x="2246" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="a_77" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MAKS&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="2015.5" y="415" as="geometry" />
+        </mxCell>
+        <mxCell id="c196" edge="1" parent="1" source="a_77" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="hotels" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_snap_route" edge="1" parent="1" source="flight_routes" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="flight_price_snapshots">
+        <mxCell id="a_79" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENKS" vertex="1">
+          <mxGeometry height="46" width="132" x="2055.5" y="351" as="geometry" />
+        </mxCell>
+        <mxCell id="c197" edge="1" parent="1" source="a_79" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="hotels" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_snap_airline" edge="1" parent="1" source="airlines" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="flight_price_snapshots">
+        <mxCell id="a_83" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="DIACHI" vertex="1">
+          <mxGeometry height="46" width="132" x="2147.5" y="299" as="geometry" />
+        </mxCell>
+        <mxCell id="c199" edge="1" parent="1" source="a_83" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="hotels" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_daily_cache" edge="1" parent="1" source="weather_cache" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="weather_daily_forecasts">
+        <mxCell id="a_85" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="GIAPHONG" vertex="1">
+          <mxGeometry height="46" width="132" x="2539.5" y="359" as="geometry" />
+        </mxCell>
+        <mxCell id="c200" edge="1" parent="1" source="a_85" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="hotels" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r_comments_review" edge="1" parent="1" source="reviews" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;startArrow=ERone;startFill=0;endArrow=ERmany;endFill=0;" target="community_comments">
+        <mxCell id="a_87" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="DANHGIATRUNGBINH" vertex="1">
+          <mxGeometry height="46" width="132" x="2572.5" y="427" as="geometry" />
+        </mxCell>
+        <mxCell id="c201" edge="1" parent="1" source="a_87" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="hotels" value="">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flight_routes" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CHUYẾN BAY" vertex="1">
+          <mxGeometry height="56" width="180" x="2197" y="1004" as="geometry" />
+        </mxCell>
+        <mxCell id="a_99" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MACB&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="2000" y="1174" as="geometry" />
+        </mxCell>
+        <mxCell id="c207" edge="1" parent="1" source="a_99" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_routes" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_103" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="DIEMXUATPHAT" vertex="1">
+          <mxGeometry height="46" width="132" x="2272" y="1227" as="geometry" />
+        </mxCell>
+        <mxCell id="c209" edge="1" parent="1" source="a_103" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_routes" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_105" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="DIEMDEN" vertex="1">
+          <mxGeometry height="46" width="132" x="2409" y="1197" as="geometry" />
+        </mxCell>
+        <mxCell id="c210" edge="1" parent="1" source="a_105" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_routes" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="flight_price_snapshots" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CHI TIẾT CHUYẾN BAY" vertex="1">
+          <mxGeometry height="56" width="180" x="2697" y="1004" as="geometry" />
+        </mxCell>
+        <mxCell id="a_109" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MACTCB&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="2787" y="817" as="geometry" />
+        </mxCell>
+        <mxCell id="c212" edge="1" parent="1" source="a_109" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_111" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="LOAIHANHTRINH" vertex="1">
+          <mxGeometry height="46" width="132" x="2928" y="827" as="geometry" />
+        </mxCell>
+        <mxCell id="c213" edge="1" parent="1" source="a_111" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_113" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYDI" vertex="1">
+          <mxGeometry height="46" width="132" x="2989" y="882" as="geometry" />
+        </mxCell>
+        <mxCell id="c214" edge="1" parent="1" source="a_113" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_115" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYVE" vertex="1">
+          <mxGeometry height="46" width="132" x="3034" y="941" as="geometry" />
+        </mxCell>
+        <mxCell id="c215" edge="1" parent="1" source="a_115" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_117" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="SOKHACH" vertex="1">
+          <mxGeometry height="46" width="132" x="3038" y="1007" as="geometry" />
+        </mxCell>
+        <mxCell id="c216" edge="1" parent="1" source="a_117" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_119" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="HANGGHE" vertex="1">
+          <mxGeometry height="46" width="132" x="3029" y="1075" as="geometry" />
+        </mxCell>
+        <mxCell id="c217" edge="1" parent="1" source="a_119" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_121" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="TẠO" vertex="1">
+          <mxGeometry height="74" width="132" x="625" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="c218" edge="1" parent="1" source="users" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_121" value="(0-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c219" edge="1" parent="1" source="rel_121" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="trips" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_127" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="Gồm" vertex="1">
+          <mxGeometry height="74" width="132" x="974" y="813" as="geometry" />
+        </mxCell>
+        <mxCell id="c222" edge="1" parent="1" source="trips" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_127" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c223" edge="1" parent="1" source="rel_127" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="trip_days" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_130" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="Chứa" vertex="1">
+          <mxGeometry height="74" width="132" x="1348" y="999" as="geometry" />
+        </mxCell>
+        <mxCell id="c224" edge="1" parent="1" source="trip_days" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_130" value="(1-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_133" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CHỨA" vertex="1">
+          <mxGeometry height="74" width="132" x="1360" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="c226" edge="1" parent="1" source="destinations" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_133" value="(0-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c227" edge="1" parent="1" source="rel_133" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="trips" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_136" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="chứa" vertex="1">
+          <mxGeometry height="74" width="132" x="1656" y="826" as="geometry" />
+        </mxCell>
+        <mxCell id="c228" edge="1" parent="1" source="destinations" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_136" value="(1-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c229" edge="1" parent="1" source="rel_136" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="pois" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_139" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="Có" vertex="1">
+          <mxGeometry height="74" width="132" x="1969" y="548" as="geometry" />
+        </mxCell>
+        <mxCell id="c230" edge="1" parent="1" source="destinations" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_139" value="(1-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c231" edge="1" parent="1" source="rel_139" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="hotels" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_142" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CHỨA" vertex="1">
+          <mxGeometry height="74" width="132" x="1973" y="817" as="geometry" />
+        </mxCell>
+        <mxCell id="c232" edge="1" parent="1" source="destinations" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_142" value="(1-N)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c233" edge="1" parent="1" source="rel_142" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="flight_routes" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_148" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="CÓ" vertex="1">
+          <mxGeometry height="74" width="132" x="2484" y="995" as="geometry" />
+        </mxCell>
+        <mxCell id="c236" edge="1" parent="1" source="flight_routes" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="rel_148" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c237" edge="1" parent="1" source="rel_148" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;" target="flight_price_snapshots" value="(1-1)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c238" edge="1" parent="1" source="pois" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="rel_130" value="(0-N)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1644.6610058785113" y="1278.0372305682558" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#1a1a1a;" value="SƠ ĐỒ THỰC THỂ - QUAN HỆ (ERD) — TravelBuddy" vertex="1">
+          <mxGeometry height="40" width="900" x="983" y="154" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-1" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="NGAYSINH" vertex="1">
+          <mxGeometry height="46" width="132" x="24" y="656" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="DIACHI" vertex="1">
+          <mxGeometry height="46" width="132" x="42" y="724" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-3" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-2" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;" target="users" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="802" as="sourcePoint" />
+            <mxPoint x="325" y="768" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-4" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="STATUS" vertex="1">
+          <mxGeometry height="46" width="132" x="162" y="767" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-5" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-4" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" target="users" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="225" y="963" as="sourcePoint" />
+            <mxPoint x="358" y="839" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-6" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="SONGUOI" vertex="1">
+          <mxGeometry height="46" width="132" x="1224" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-7" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-6" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.75;entryY=0;entryDx=0;entryDy=0;exitX=0;exitY=1;exitDx=0;exitDy=0;" target="trips" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1258" y="579" as="sourcePoint" />
+            <mxPoint x="1162" y="718" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-8" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="HANHTRANG" vertex="1">
+          <mxGeometry height="46" width="132" x="1112" y="1205" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-9" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-8" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" target="trip_days" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="891" y="1184" as="sourcePoint" />
+            <mxPoint x="1010" y="1144" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-10" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="CHIPHI" vertex="1">
+          <mxGeometry height="46" width="132" x="1195" y="1153" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-11" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-10" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=1;entryY=1;entryDx=0;entryDy=0;" target="trip_days" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="912" y="1337" as="sourcePoint" />
+            <mxPoint x="1030" y="1209" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-15" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYNHANPHONG" vertex="1">
+          <mxGeometry height="46" width="132" x="2294" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-16" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-15" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="hotels" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2267.5" y="444" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-17" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NGAYTRAPHONG" vertex="1">
+          <mxGeometry height="46" width="132" x="2437.5" y="305" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-18" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-17" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.579;entryY=0.012;entryDx=0;entryDy=0;entryPerimeter=0;" target="hotels" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2373.5" y="448" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-24" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENHHK" vertex="1">
+          <mxGeometry height="46" width="132" x="2121" y="1222" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-25" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-24" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="flight_routes" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2197" y="989" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-26" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="GIAVE" vertex="1">
+          <mxGeometry height="46" width="132" x="2975" y="1143" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-27" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-26" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" target="flight_price_snapshots" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2809" y="1106.9999999999998" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-35" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontStyle=1;fontSize=12;fillColor=#b1ddf0;strokeColor=#10739e;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="BÀI VIẾT CHIA SẺ" vertex="1">
+          <mxGeometry height="56" width="180" x="270" y="1007" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-36" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="&lt;b&gt;&lt;u&gt;MABV&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="46" width="132" x="49" y="1135" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-37" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-36" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="AjGYKmabatW9cxSM7KQI-35" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-38" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="NOIDUNG" vertex="1">
+          <mxGeometry height="46" width="132" x="263" y="1232" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-39" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-38" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="AjGYKmabatW9cxSM7KQI-35" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-40" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="SOLUOTHUUICH" vertex="1">
+          <mxGeometry height="46" width="132" x="422" y="1220" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-41" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-40" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="AjGYKmabatW9cxSM7KQI-35" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-42" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENNGUOIDUNG" vertex="1">
+          <mxGeometry height="46" width="132" x="113" y="1200" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-43" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-42" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;" target="AjGYKmabatW9cxSM7KQI-35" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-44" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="SOBINHLUAN" vertex="1">
+          <mxGeometry height="46" width="132" x="529" y="1165" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-45" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-44" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" target="AjGYKmabatW9cxSM7KQI-35" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="225" y="1190" as="sourcePoint" />
+            <mxPoint x="344" y="1150" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-48" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;" value="TẠO" vertex="1">
+          <mxGeometry height="74" width="132" x="294" y="798" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-49" edge="1" parent="1" source="users" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="AjGYKmabatW9cxSM7KQI-48" value="(0-N)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="304" y="681.9999999999998" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-50" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-48" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="AjGYKmabatW9cxSM7KQI-35" value="(1-1)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="318" y="1012.0000000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-52" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=11;fontStyle=1;align=center;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=middle;fontFamily=Helvetica;fontColor=default;" value="THUỘC" vertex="1">
+          <mxGeometry height="74" width="132" x="637" y="815" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-53" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-35" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;exitX=1;exitY=0;exitDx=0;exitDy=0;" target="AjGYKmabatW9cxSM7KQI-52" value="(1-1)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="308.9999999999998" y="1046.0000000000002" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-54" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-52" style="endArrow=none;startArrow=none;html=1;strokeColor=#444444;fontSize=13;fontStyle=1;fontColor=#1a1a1a;labelBackgroundColor=#ffffff;entryX=0;entryY=1;entryDx=0;entryDy=0;" target="trips" value="(0-N)">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="956.0000000000005" y="685.0000000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-58" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="661" y="697" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-59" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="416" y="820" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-60" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="671" y="885" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-61" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-1)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="1093" y="835" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-62" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;fontFamily=Helvetica;fontColor=default;" value="TENDIEMDEN" vertex="1">
+          <mxGeometry height="46" width="132" x="771" y="439" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-63" edge="1" parent="1" source="AjGYKmabatW9cxSM7KQI-62" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;entryX=0.314;entryY=0.015;entryDx=0;entryDy=0;entryPerimeter=0;" target="trips" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="934" y="622" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-64" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="1393" y="592" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-65" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="1389" y="1075" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-66" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="1608" y="848" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-68" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="2007" y="618" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-69" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-N)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="2007" y="783" as="geometry" />
+        </mxCell>
+        <mxCell id="AjGYKmabatW9cxSM7KQI-70" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;(1-1)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="2520" y="965" as="geometry" />
+        </mxCell>
+        <mxCell id="9skqFFKqhNxq_IFZcSFJ-2" parent="1" style="ellipse;whiteSpace=wrap;html=1;fontSize=10;align=center;verticalAlign=middle;fillColor=#fad9d5;strokeColor=#ae4132;" value="SDT" vertex="1">
+          <mxGeometry height="46" width="132" x="15" y="592" as="geometry" />
+        </mxCell>
+        <mxCell id="9skqFFKqhNxq_IFZcSFJ-3" edge="1" parent="1" source="9skqFFKqhNxq_IFZcSFJ-2" style="endArrow=none;startArrow=none;html=1;strokeColor=#9aa0a6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="users" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="182" y="639" as="sourcePoint" />
+            <mxPoint x="291" y="624" as="targetPoint" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

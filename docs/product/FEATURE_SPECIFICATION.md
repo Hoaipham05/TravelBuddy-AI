@@ -756,7 +756,6 @@ Dựa trên: 2 người, 3 đêm, thích yên tĩnh, gần biển
 ✅ Trong ngân sách của bạn (10tr/người)
 💡 Tiết kiệm thêm: Chọn khách sạn Coco Palm → giết khoảng 700k
 
-[📋 Lưu kế hoạch này]  [✏️ Điều chỉnh]  [📤 Chia sẻ]
 ```
 
 ---
